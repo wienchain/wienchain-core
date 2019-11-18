@@ -1,5 +1,25 @@
-Building Bitcoin
-================
+Building Wienchain
 
-See doc/build-*.md for instructions on building the various
-elements of the Bitcoin Core reference implementation of Bitcoin.
+After you install the usual build tools and C++ development tools,
+Wienchain also needs some build dependencies which are not always provided
+by default by the OS package manager
+(in particular BerkeleyDB 4.8 for building with wallet support).
+
+Before trying to build, be sure to read one of these files,
+depending on your environment:
+
+  doc/build-unix.md
+  doc/build-openbsd.md
+  doc/build-osx.md
+  doc/build-windows.md
+
+After installing the needed dependencies,
+use the autogen script to prepare the build environment.
+
+    ./autogen.sh
+    ./configure
+    make
+
+See doc/build-*.md for instructions on building wienchaind,
+the intended-for-services, no-graphical-interface,
+reference implementation of Wienchain.

@@ -1,17 +1,16 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2018 The Bitcoin Core developers
+// Copyright (c) 2009-2015 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_CHAIN_H
 #define BITCOIN_CHAIN_H
 
-#include <arith_uint256.h>
-#include <consensus/params.h>
-#include <flatfile.h>
-#include <primitives/block.h>
-#include <tinyformat.h>
-#include <uint256.h>
+#include "arith_uint256.h"
+#include "primitives/block.h"
+#include "pow.h"
+#include "tinyformat.h"
+#include "uint256.h"
 
 #include <vector>
 
@@ -19,7 +18,7 @@
  * Maximum amount of time that a block timestamp is allowed to exceed the
  * current network-adjusted time before the block will be accepted.
  */
-static constexpr int64_t MAX_FUTURE_BLOCK_TIME = 2 * 60 * 60;
+static const int64_t MAX_FUTURE_BLOCK_TIME = 2 * 60 * 60;
 
 /**
  * Timestamp window used as a grace period by code that compares external
@@ -27,15 +26,7 @@ static constexpr int64_t MAX_FUTURE_BLOCK_TIME = 2 * 60 * 60;
  * to block timestamps. This should be set at least as high as
  * MAX_FUTURE_BLOCK_TIME.
  */
-static constexpr int64_t TIMESTAMP_WINDOW = MAX_FUTURE_BLOCK_TIME;
-
-/**
- * Maximum gap between node time and block time used
- * for the "Catching up..." mode in GUI.
- *
- * Ref: https://github.com/bitcoin/bitcoin/pull/1026
- */
-static constexpr int64_t MAX_BLOCK_TIME_GAP = 90 * 60;
+static const int64_t TIMESTAMP_WINDOW = MAX_FUTURE_BLOCK_TIME;
 
 class CBlockFileInfo
 {
@@ -91,12 +82,52 @@ public:
      }
 };
 
+struct CDiskBlockPos
+{
+    int nFile;
+    unsigned int nPos;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(VARINT(nFile));
+        READWRITE(VARINT(nPos));
+    }
+
+    CDiskBlockPos() {
+        SetNull();
+    }
+
+    CDiskBlockPos(int nFileIn, unsigned int nPosIn) {
+        nFile = nFileIn;
+        nPos = nPosIn;
+    }
+
+    friend bool operator==(const CDiskBlockPos &a, const CDiskBlockPos &b) {
+        return (a.nFile == b.nFile && a.nPos == b.nPos);
+    }
+
+    friend bool operator!=(const CDiskBlockPos &a, const CDiskBlockPos &b) {
+        return !(a == b);
+    }
+
+    void SetNull() { nFile = -1; nPos = 0; }
+    bool IsNull() const { return (nFile == -1); }
+
+    std::string ToString() const
+    {
+        return strprintf("CBlockDiskPos(nFile=%i, nPos=%i)", nFile, nPos);
+    }
+
+};
+
 enum BlockStatus: uint32_t {
     //! Unused.
     BLOCK_VALID_UNKNOWN      =    0,
 
-    //! Reserved (was BLOCK_VALID_HEADER).
-    BLOCK_VALID_RESERVED     =    1,
+    //! Parsed, version ok, hash satisfies claimed PoW, 1 <= vtx count <= max, timestamp not in future
+    BLOCK_VALID_HEADER       =    1,
 
     //! All parent headers found, difficulty matches, timestamp >= median previous, checkpoint. Implies all parents
     //! are also at least TREE.
@@ -117,7 +148,7 @@ enum BlockStatus: uint32_t {
     BLOCK_VALID_SCRIPTS      =    5,
 
     //! All validity bits.
-    BLOCK_VALID_MASK         =   BLOCK_VALID_RESERVED | BLOCK_VALID_TREE | BLOCK_VALID_TRANSACTIONS |
+    BLOCK_VALID_MASK         =   BLOCK_VALID_HEADER | BLOCK_VALID_TREE | BLOCK_VALID_TRANSACTIONS |
                                  BLOCK_VALID_CHAIN | BLOCK_VALID_SCRIPTS,
 
     BLOCK_HAVE_DATA          =    8, //!< full block available in blk*.dat
@@ -128,7 +159,7 @@ enum BlockStatus: uint32_t {
     BLOCK_FAILED_CHILD       =   64, //!< descends from failed block
     BLOCK_FAILED_MASK        =   BLOCK_FAILED_VALID | BLOCK_FAILED_CHILD,
 
-    BLOCK_OPT_WITNESS       =   128, //!< block data in blk*.data was received with a witness-enforcing client
+    BLOCK_CONFLICT_CHAINLOCK =   128, //!< conflicts with chainlock system
 };
 
 /** The block chain is a tree shaped structure starting with the
@@ -140,69 +171,95 @@ class CBlockIndex
 {
 public:
     //! pointer to the hash of the block, if any. Memory is owned by this CBlockIndex
-    const uint256* phashBlock{nullptr};
+    const uint256* phashBlock;
 
     //! pointer to the index of the predecessor of this block
-    CBlockIndex* pprev{nullptr};
+    CBlockIndex* pprev;
 
     //! pointer to the index of some further predecessor of this block
-    CBlockIndex* pskip{nullptr};
+    CBlockIndex* pskip;
 
     //! height of the entry in the chain. The genesis block has height 0
-    int nHeight{0};
+    int nHeight;
 
     //! Which # file this block is stored in (blk?????.dat)
-    int nFile{0};
+    int nFile;
 
     //! Byte offset within blk?????.dat where this block's data is stored
-    unsigned int nDataPos{0};
+    unsigned int nDataPos;
 
     //! Byte offset within rev?????.dat where this block's undo data is stored
-    unsigned int nUndoPos{0};
+    unsigned int nUndoPos;
 
     //! (memory only) Total amount of work (expected number of hashes) in the chain up to and including this block
-    arith_uint256 nChainWork{};
+    arith_uint256 nChainWork;
 
     //! Number of transactions in this block.
     //! Note: in a potential headers-first mode, this number cannot be relied upon
-    unsigned int nTx{0};
+    unsigned int nTx;
 
     //! (memory only) Number of transactions in the chain up to and including this block.
     //! This value will be non-zero only if and only if transactions for this block and all its parents are available.
     //! Change to 64-bit type when necessary; won't happen before 2030
-    unsigned int nChainTx{0};
+    unsigned int nChainTx;
 
     //! Verification status of this block. See enum BlockStatus
-    uint32_t nStatus{0};
+    unsigned int nStatus;
 
     //! block header
-    int32_t nVersion{0};
-    uint256 hashMerkleRoot{};
-    uint32_t nTime{0};
-    uint32_t nBits{0};
-    uint32_t nNonce{0};
+    int nVersion;
+    uint256 hashMerkleRoot;
+    unsigned int nTime;
+    unsigned int nBits;
+    unsigned int nNonce;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
-    int32_t nSequenceId{0};
+    int32_t nSequenceId;
 
-    //! (memory only) Maximum nTime in the chain up to and including this block.
-    unsigned int nTimeMax{0};
+    //! (memory only) Maximum nTime in the chain upto and including this block.
+    unsigned int nTimeMax;
+
+    void SetNull()
+    {
+        phashBlock = NULL;
+        pprev = NULL;
+        pskip = NULL;
+        nHeight = 0;
+        nFile = 0;
+        nDataPos = 0;
+        nUndoPos = 0;
+        nChainWork = arith_uint256();
+        nTx = 0;
+        nChainTx = 0;
+        nStatus = 0;
+        nSequenceId = 0;
+        nTimeMax = 0;
+
+        nVersion       = 0;
+        hashMerkleRoot = uint256();
+        nTime          = 0;
+        nBits          = 0;
+        nNonce         = 0;
+    }
 
     CBlockIndex()
     {
+        SetNull();
     }
 
-    explicit CBlockIndex(const CBlockHeader& block)
-        : nVersion{block.nVersion},
-          hashMerkleRoot{block.hashMerkleRoot},
-          nTime{block.nTime},
-          nBits{block.nBits},
-          nNonce{block.nNonce}
+    CBlockIndex(const CBlockHeader& block)
     {
+        SetNull();
+
+        nVersion       = block.nVersion;
+        hashMerkleRoot = block.hashMerkleRoot;
+        nTime          = block.nTime;
+        nBits          = block.nBits;
+        nNonce         = block.nNonce;
     }
 
-    FlatFilePos GetBlockPos() const {
-        FlatFilePos ret;
+    CDiskBlockPos GetBlockPos() const {
+        CDiskBlockPos ret;
         if (nStatus & BLOCK_HAVE_DATA) {
             ret.nFile = nFile;
             ret.nPos  = nDataPos;
@@ -210,8 +267,8 @@ public:
         return ret;
     }
 
-    FlatFilePos GetUndoPos() const {
-        FlatFilePos ret;
+    CDiskBlockPos GetUndoPos() const {
+        CDiskBlockPos ret;
         if (nStatus & BLOCK_HAVE_UNDO) {
             ret.nFile = nFile;
             ret.nPos  = nUndoPos;
@@ -237,15 +294,6 @@ public:
         return *phashBlock;
     }
 
-    /**
-     * Check whether this block's and all previous blocks' transactions have been
-     * downloaded (and stored to disk) at some point.
-     *
-     * Does not imply the transactions are consensus-valid (ConnectTip might fail)
-     * Does not imply the transactions are still stored on disk. (IsBlockPruned might return true)
-     */
-    bool HaveTxsDownloaded() const { return nChainTx != 0; }
-
     int64_t GetBlockTime() const
     {
         return (int64_t)nTime;
@@ -256,7 +304,7 @@ public:
         return (int64_t)nTimeMax;
     }
 
-    static constexpr int nMedianTimeSpan = 11;
+    enum { nMedianTimeSpan=11 };
 
     int64_t GetMedianTimePast() const
     {
@@ -314,21 +362,21 @@ public:
 arith_uint256 GetBlockProof(const CBlockIndex& block);
 /** Return the time it would take to redo the work difference between from and to, assuming the current hashrate corresponds to the difficulty at tip, in seconds. */
 int64_t GetBlockProofEquivalentTime(const CBlockIndex& to, const CBlockIndex& from, const CBlockIndex& tip, const Consensus::Params&);
-/** Find the forking point between two chain tips. */
-const CBlockIndex* LastCommonAncestor(const CBlockIndex* pa, const CBlockIndex* pb);
-
 
 /** Used to marshal pointers into hashes for db storage. */
 class CDiskBlockIndex : public CBlockIndex
 {
 public:
+    uint256 hash;
     uint256 hashPrev;
 
     CDiskBlockIndex() {
+        hash = uint256();
         hashPrev = uint256();
     }
 
     explicit CDiskBlockIndex(const CBlockIndex* pindex) : CBlockIndex(*pindex) {
+        hash = (hash == uint256() ? pindex->GetBlockHash() : hash);
         hashPrev = (pprev ? pprev->GetBlockHash() : uint256());
     }
 
@@ -338,18 +386,20 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         int _nVersion = s.GetVersion();
         if (!(s.GetType() & SER_GETHASH))
-            READWRITE(VARINT(_nVersion, VarIntMode::NONNEGATIVE_SIGNED));
+            READWRITE(VARINT(_nVersion));
 
-        READWRITE(VARINT(nHeight, VarIntMode::NONNEGATIVE_SIGNED));
+        READWRITE(VARINT(nHeight));
         READWRITE(VARINT(nStatus));
         READWRITE(VARINT(nTx));
         if (nStatus & (BLOCK_HAVE_DATA | BLOCK_HAVE_UNDO))
-            READWRITE(VARINT(nFile, VarIntMode::NONNEGATIVE_SIGNED));
+            READWRITE(VARINT(nFile));
         if (nStatus & BLOCK_HAVE_DATA)
             READWRITE(VARINT(nDataPos));
         if (nStatus & BLOCK_HAVE_UNDO)
             READWRITE(VARINT(nUndoPos));
 
+        // block hash
+        READWRITE(hash);
         // block header
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
@@ -361,6 +411,8 @@ public:
 
     uint256 GetBlockHash() const
     {
+        if(hash != uint256()) return hash;
+        // should never really get here, keeping this as a fallback
         CBlockHeader block;
         block.nVersion        = nVersion;
         block.hashPrevBlock   = hashPrev;
@@ -389,20 +441,20 @@ private:
     std::vector<CBlockIndex*> vChain;
 
 public:
-    /** Returns the index entry for the genesis block of this chain, or nullptr if none. */
+    /** Returns the index entry for the genesis block of this chain, or NULL if none. */
     CBlockIndex *Genesis() const {
-        return vChain.size() > 0 ? vChain[0] : nullptr;
+        return vChain.size() > 0 ? vChain[0] : NULL;
     }
 
-    /** Returns the index entry for the tip of this chain, or nullptr if none. */
+    /** Returns the index entry for the tip of this chain, or NULL if none. */
     CBlockIndex *Tip() const {
-        return vChain.size() > 0 ? vChain[vChain.size() - 1] : nullptr;
+        return vChain.size() > 0 ? vChain[vChain.size() - 1] : NULL;
     }
 
-    /** Returns the index entry at a particular height in this chain, or nullptr if no such height exists. */
+    /** Returns the index entry at a particular height in this chain, or NULL if no such height exists. */
     CBlockIndex *operator[](int nHeight) const {
         if (nHeight < 0 || nHeight >= (int)vChain.size())
-            return nullptr;
+            return NULL;
         return vChain[nHeight];
     }
 
@@ -417,12 +469,12 @@ public:
         return (*this)[pindex->nHeight] == pindex;
     }
 
-    /** Find the successor of a block in this chain, or nullptr if the given index is not found or is the tip. */
+    /** Find the successor of a block in this chain, or NULL if the given index is not found or is the tip. */
     CBlockIndex *Next(const CBlockIndex *pindex) const {
         if (Contains(pindex))
             return (*this)[pindex->nHeight + 1];
         else
-            return nullptr;
+            return NULL;
     }
 
     /** Return the maximal height in the chain. Is equal to chain.Tip() ? chain.Tip()->nHeight : -1. */
@@ -434,13 +486,13 @@ public:
     void SetTip(CBlockIndex *pindex);
 
     /** Return a CBlockLocator that refers to a block in this chain (by default the tip). */
-    CBlockLocator GetLocator(const CBlockIndex *pindex = nullptr) const;
+    CBlockLocator GetLocator(const CBlockIndex *pindex = NULL) const;
 
     /** Find the last common block between this chain and a block index entry. */
     const CBlockIndex *FindFork(const CBlockIndex *pindex) const;
 
-    /** Find the earliest block with timestamp equal or greater than the given time and height equal or greater than the given height. */
-    CBlockIndex* FindEarliestAtLeast(int64_t nTime, int height) const;
+    /** Find the earliest block with timestamp equal or greater than the given. */
+    CBlockIndex* FindEarliestAtLeast(int64_t nTime) const;
 };
 
 #endif // BITCOIN_CHAIN_H

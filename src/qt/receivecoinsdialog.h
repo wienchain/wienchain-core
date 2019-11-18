@@ -1,11 +1,11 @@
-// Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2011-2015 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_QT_RECEIVECOINSDIALOG_H
 #define BITCOIN_QT_RECEIVECOINSDIALOG_H
 
-#include <qt/guiutil.h>
+#include "guiutil.h"
 
 #include <QDialog>
 #include <QHeaderView>
@@ -15,6 +15,7 @@
 #include <QPoint>
 #include <QVariant>
 
+class OptionsModel;
 class PlatformStyle;
 class WalletModel;
 
@@ -39,18 +40,18 @@ public:
         MINIMUM_COLUMN_WIDTH = 130
     };
 
-    explicit ReceiveCoinsDialog(const PlatformStyle *platformStyle, QWidget *parent = nullptr);
+    explicit ReceiveCoinsDialog(const PlatformStyle *platformStyle, QWidget *parent = 0);
     ~ReceiveCoinsDialog();
 
     void setModel(WalletModel *model);
 
 public Q_SLOTS:
     void clear();
-    void reject();
-    void accept();
+    void reject() override;
+    void accept() override;
 
 protected:
-    virtual void keyPressEvent(QKeyEvent *event);
+    virtual void keyPressEvent(QKeyEvent *event) override;
 
 private:
     Ui::ReceiveCoinsDialog *ui;
@@ -61,7 +62,7 @@ private:
 
     QModelIndex selectedRow();
     void copyColumnToClipboard(int column);
-    virtual void resizeEvent(QResizeEvent *event);
+    virtual void resizeEvent(QResizeEvent *event) override;
 
 private Q_SLOTS:
     void on_receiveButton_clicked();

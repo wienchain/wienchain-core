@@ -1,27 +1,28 @@
-// Copyright (c) 2016-2018 The Bitcoin Core developers
+// Copyright (c) 2016 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <qt/modaloverlay.h>
-#include <qt/forms/ui_modaloverlay.h>
+#include "modaloverlay.h"
+#include "ui_modaloverlay.h"
 
-#include <qt/guiutil.h>
+#include "guiutil.h"
 
-#include <chainparams.h>
+#include "chainparams.h"
 
 #include <QResizeEvent>
 #include <QPropertyAnimation>
 
-ModalOverlay::ModalOverlay(bool enable_wallet, QWidget *parent) :
+ModalOverlay::ModalOverlay(QWidget *parent) :
 QWidget(parent),
 ui(new Ui::ModalOverlay),
 bestHeaderHeight(0),
 bestHeaderDate(QDateTime()),
 layerIsVisible(false),
-userClosed(false)
+userClosed(false),
+foreverHidden(false)
 {
     ui->setupUi(this);
-    connect(ui->closeButton, &QPushButton::clicked, this, &ModalOverlay::closeClicked);
+    connect(ui->closeButton, SIGNAL(clicked()), this, SLOT(closeClicked()));
     if (parent) {
         parent->installEventFilter(this);
         raise();
@@ -29,10 +30,6 @@ userClosed(false)
 
     blockProcessTime.clear();
     setVisible(false);
-    if (!enable_wallet) {
-        ui->infoText->setVisible(false);
-        ui->infoTextStrong->setText(tr("Bitcoin Core is currently syncing.  It will download headers and blocks from peers and validate them until reaching the tip of the block chain."));
-    }
 }
 
 ModalOverlay::~ModalOverlay()
@@ -75,7 +72,6 @@ void ModalOverlay::setKnownBestHeight(int count, const QDateTime& blockDate)
     if (count > bestHeaderHeight) {
         bestHeaderHeight = count;
         bestHeaderDate = blockDate;
-        UpdateHeaderSyncLabel();
     }
 }
 
@@ -86,7 +82,7 @@ void ModalOverlay::tipUpdate(int count, const QDateTime& blockDate, double nVeri
     // keep a vector of samples of verification progress at height
     blockProcessTime.push_front(qMakePair(currentDate.toMSecsSinceEpoch(), nVerificationProgress));
 
-    // show progress speed if we have more than one sample
+    // show progress speed if we have more then one sample
     if (blockProcessTime.size() >= 2) {
         double progressDelta = 0;
         double progressPerHour = 0;
@@ -109,7 +105,7 @@ void ModalOverlay::tipUpdate(int count, const QDateTime& blockDate, double nVeri
         ui->progressIncreasePerH->setText(QString::number(progressPerHour * 100, 'f', 2)+"%");
 
         // show expected remaining time
-        if(remainingMSecs >= 0) {
+        if(remainingMSecs >= 0) {	
             ui->expectedTimeLeft->setText(GUIUtil::formatNiceTimeOffset(remainingMSecs / 1000.0));
         } else {
             ui->expectedTimeLeft->setText(QObject::tr("unknown"));
@@ -133,7 +129,7 @@ void ModalOverlay::tipUpdate(int count, const QDateTime& blockDate, double nVeri
         return;
 
     // estimate the number of headers left based on nPowTargetSpacing
-    // and check if the gui is not aware of the best header (happens rarely)
+    // and check if the gui is not aware of the the best header (happens rarely)
     int estimateNumHeadersLeft = bestHeaderDate.secsTo(currentDate) / Params().GetConsensus().nPowTargetSpacing;
     bool hasBestHeader = bestHeaderHeight >= count;
 
@@ -141,14 +137,9 @@ void ModalOverlay::tipUpdate(int count, const QDateTime& blockDate, double nVeri
     if (estimateNumHeadersLeft < HEADER_HEIGHT_DELTA_SYNC && hasBestHeader) {
         ui->numberOfBlocksLeft->setText(QString::number(bestHeaderHeight - count));
     } else {
-        UpdateHeaderSyncLabel();
+        ui->numberOfBlocksLeft->setText(tr("Unknown. Syncing Headers (%1)...").arg(bestHeaderHeight));
         ui->expectedTimeLeft->setText(tr("Unknown..."));
     }
-}
-
-void ModalOverlay::UpdateHeaderSyncLabel() {
-    int est_headers_left = bestHeaderDate.secsTo(QDateTime::currentDateTime()) / Params().GetConsensus().nPowTargetSpacing;
-    ui->numberOfBlocksLeft->setText(tr("Unknown. Syncing Headers (%1, %2%)...").arg(bestHeaderHeight).arg(QString::number(100.0 / (bestHeaderHeight + est_headers_left) * bestHeaderHeight, 'f', 1)));
 }
 
 void ModalOverlay::toggleVisibility()
@@ -161,6 +152,9 @@ void ModalOverlay::toggleVisibility()
 void ModalOverlay::showHide(bool hide, bool userRequested)
 {
     if ( (layerIsVisible && !hide) || (!layerIsVisible && hide) || (!hide && userClosed && !userRequested))
+        return;
+
+    if (!hide && foreverHidden)
         return;
 
     if (!isVisible() && !hide)
@@ -181,4 +175,9 @@ void ModalOverlay::closeClicked()
 {
     showHide(true);
     userClosed = true;
+}
+
+void ModalOverlay::hideForever()
+{
+    foreverHidden = true;
 }

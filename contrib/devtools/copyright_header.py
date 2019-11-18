@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Copyright (c) 2016-2019 The Bitcoin Core developers
+# Copyright (c) 2016 The Bitcoin Core developers
+# Copyright (c) 2019 The Wienchain developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -15,32 +16,33 @@ import os
 ################################################################################
 
 EXCLUDE = [
+    # libsecp256k1:
+    'src/secp256k1/include/secp256k1.h',
+    'src/secp256k1/include/secp256k1_ecdh.h',
+    'src/secp256k1/include/secp256k1_recovery.h',
+    'src/secp256k1/include/secp256k1_schnorr.h',
+    'src/secp256k1/src/java/org_bitcoin_NativeSecp256k1.c',
+    'src/secp256k1/src/java/org_bitcoin_NativeSecp256k1.h',
+    'src/secp256k1/src/java/org_bitcoin_Secp256k1Context.c',
+    'src/secp256k1/src/java/org_bitcoin_Secp256k1Context.h',
     # auto generated:
+    'src/univalue/lib/univalue_escapes.h',
     'src/qt/bitcoinstrings.cpp',
     'src/chainparamsseeds.h',
     # other external copyrights:
     'src/tinyformat.h',
-    'test/functional/test_framework/bignum.py',
+    'src/leveldb/util/env_win.cc',
+    'src/crypto/ctaes/bench.c',
+    'qa/rpc-tests/test_framework/bignum.py',
     # python init:
     '*__init__.py',
 ]
 EXCLUDE_COMPILED = re.compile('|'.join([fnmatch.translate(m) for m in EXCLUDE]))
 
-EXCLUDE_DIRS = [
-    # git subtrees
-    "src/crypto/ctaes/",
-    "src/leveldb/",
-    "src/secp256k1/",
-    "src/univalue/",
-]
-
-INCLUDE = ['*.h', '*.cpp', '*.cc', '*.c', '*.mm', '*.py', '*.sh', '*.bash-completion']
+INCLUDE = ['*.h', '*.cpp', '*.cc', '*.c', '*.py']
 INCLUDE_COMPILED = re.compile('|'.join([fnmatch.translate(m) for m in INCLUDE]))
 
 def applies_to_file(filename):
-    for excluded_dir in EXCLUDE_DIRS:
-        if filename.startswith(excluded_dir):
-            return False
     return ((EXCLUDE_COMPILED.match(filename) is None) and
             (INCLUDE_COMPILED.match(filename) is not None))
 
@@ -48,22 +50,15 @@ def applies_to_file(filename):
 # obtain list of files in repo according to INCLUDE and EXCLUDE
 ################################################################################
 
-GIT_LS_CMD = 'git ls-files --full-name'.split(' ')
-GIT_TOPLEVEL_CMD = 'git rev-parse --show-toplevel'.split(' ')
+GIT_LS_CMD = 'git ls-files'
 
-def call_git_ls(base_directory):
-    out = subprocess.check_output([*GIT_LS_CMD, base_directory])
+def call_git_ls():
+    out = subprocess.check_output(GIT_LS_CMD.split(' '))
     return [f for f in out.decode("utf-8").split('\n') if f != '']
 
-def call_git_toplevel():
-    "Returns the absolute path to the project root"
-    return subprocess.check_output(GIT_TOPLEVEL_CMD).strip().decode("utf-8")
-
-def get_filenames_to_examine(base_directory):
-    "Returns an array of absolute paths to any project files in the base_directory that pass the include/exclude filters"
-    root = call_git_toplevel()
-    filenames = call_git_ls(base_directory)
-    return sorted([os.path.join(root, filename) for filename in filenames if
+def get_filenames_to_examine():
+    filenames = call_git_ls()
+    return sorted([filename for filename in filenames if
                    applies_to_file(filename)])
 
 ################################################################################
@@ -71,7 +66,7 @@ def get_filenames_to_examine(base_directory):
 ################################################################################
 
 
-COPYRIGHT_WITH_C = r'Copyright \(c\)'
+COPYRIGHT_WITH_C = 'Copyright \(c\)'
 COPYRIGHT_WITHOUT_C = 'Copyright'
 ANY_COPYRIGHT_STYLE = '(%s|%s)' % (COPYRIGHT_WITH_C, COPYRIGHT_WITHOUT_C)
 
@@ -85,21 +80,33 @@ ANY_COPYRIGHT_STYLE_OR_YEAR_STYLE = ("%s %s" % (ANY_COPYRIGHT_STYLE,
 ANY_COPYRIGHT_COMPILED = re.compile(ANY_COPYRIGHT_STYLE_OR_YEAR_STYLE)
 
 def compile_copyright_regex(copyright_style, year_style, name):
-    return re.compile(r'%s %s,? %s( +\*)?\n' % (copyright_style, year_style, name))
+    return re.compile('%s %s %s' % (copyright_style, year_style, name))
 
 EXPECTED_HOLDER_NAMES = [
-    r"Satoshi Nakamoto",
-    r"The Bitcoin Core developers",
-    r"BitPay Inc\.",
-    r"University of Illinois at Urbana-Champaign\.",
-    r"Pieter Wuille",
-    r"Wladimir J\. van der Laan",
-    r"Jeff Garzik",
-    r"Jan-Klaas Kollhof",
-    r"ArtForz -- public domain half-a-node",
-    r"Intel Corporation ?",
-    r"The Zcash developers",
-    r"Jeremy Rubin",
+    "Satoshi Nakamoto\n",
+    "The Bitcoin Core developers\n",
+    "The Bitcoin Core developers \n",
+    "Bitcoin Core Developers\n",
+    "the Bitcoin Core developers\n",
+    "The Bitcoin developers\n",
+    "The LevelDB Authors\. All rights reserved\.\n",
+    "BitPay Inc\.\n",
+    "BitPay, Inc\.\n",
+    "University of Illinois at Urbana-Champaign\.\n",
+    "MarcoFalke\n",
+    "Pieter Wuille\n",
+    "Pieter Wuille +\*\n",
+    "Pieter Wuille, Gregory Maxwell +\*\n",
+    "Pieter Wuille, Andrew Poelstra +\*\n",
+    "Andrew Poelstra +\*\n",
+    "Wladimir J. van der Laan\n",
+    "Jeff Garzik\n",
+    "Diederik Huys, Pieter Wuille +\*\n",
+    "Thomas Daede, Cory Fields +\*\n",
+    "Jan-Klaas Kollhof\n",
+    "Sam Rushing\n",
+    "ArtForz -- public domain half-a-node\n",
+    "The Wienchain developers\n",
 ]
 
 DOMINANT_STYLE_COMPILED = {}
@@ -139,7 +146,7 @@ def file_has_without_c_style_copyright_for_holder(contents, holder_name):
 ################################################################################
 
 def read_file(filename):
-    return open(filename, 'r', encoding="utf8").read()
+    return open(os.path.abspath(filename), 'r').read()
 
 def gather_file_info(filename):
     info = {}
@@ -253,9 +260,12 @@ def print_report(file_infos, verbose):
     print(SEPARATOR)
 
 def exec_report(base_directory, verbose):
-    filenames = get_filenames_to_examine(base_directory)
+    original_cwd = os.getcwd()
+    os.chdir(base_directory)
+    filenames = get_filenames_to_examine()
     file_infos = [gather_file_info(f) for f in filenames]
     print_report(file_infos, verbose)
+    os.chdir(original_cwd)
 
 ################################################################################
 # report cmd
@@ -269,14 +279,14 @@ Usage:
     $ ./copyright_header.py report <base_directory> [verbose]
 
 Arguments:
-    <base_directory> - The base directory of a bitcoin source code repository.
+    <base_directory> - The base directory of a Wienchain source code repository.
     [verbose] - Includes a list of every file of each subcategory in the report.
 """
 
 def report_cmd(argv):
     if len(argv) == 2:
         sys.exit(REPORT_USAGE)
-
+        
     base_directory = argv[2]
     if not os.path.exists(base_directory):
         sys.exit("*** bad <base_directory>: %s" % base_directory)
@@ -315,13 +325,13 @@ def get_most_recent_git_change_year(filename):
 ################################################################################
 
 def read_file_lines(filename):
-    f = open(filename, 'r', encoding="utf8")
+    f = open(os.path.abspath(filename), 'r')
     file_lines = f.readlines()
     f.close()
     return file_lines
 
 def write_file_lines(filename, file_lines):
-    f = open(filename, 'w', encoding="utf8")
+    f = open(os.path.abspath(filename), 'w')
     f.write(''.join(file_lines))
     f.close()
 
@@ -329,10 +339,10 @@ def write_file_lines(filename, file_lines):
 # update header years execution
 ################################################################################
 
-COPYRIGHT = r'Copyright \(c\)'
+COPYRIGHT = 'Copyright \(c\)'
 YEAR = "20[0-9][0-9]"
 YEAR_RANGE = '(%s)(-%s)?' % (YEAR, YEAR)
-HOLDER = 'The Bitcoin Core developers'
+HOLDER = 'The Wienchain developers'
 UPDATEABLE_LINE_COMPILED = re.compile(' '.join([COPYRIGHT, YEAR_RANGE, HOLDER]))
 
 def get_updatable_copyright_line(file_lines):
@@ -389,32 +399,35 @@ def update_updatable_copyright(filename):
                               "Copyright updated! -> %s" % last_git_change_year)
 
 def exec_update_header_year(base_directory):
-    for filename in get_filenames_to_examine(base_directory):
+    original_cwd = os.getcwd()
+    os.chdir(base_directory)
+    for filename in get_filenames_to_examine():
         update_updatable_copyright(filename)
+    os.chdir(original_cwd)
 
 ################################################################################
 # update cmd
 ################################################################################
 
 UPDATE_USAGE = """
-Updates all the copyright headers of "The Bitcoin Core developers" which were
+Updates all the copyright headers of "The Wienchain developers" which were
 changed in a year more recent than is listed. For example:
 
-// Copyright (c) <firstYear>-<lastYear> The Bitcoin Core developers
+// Copyright (c) <firstYear>-<lastYear> The Wienchain developers
 
 will be updated to:
 
-// Copyright (c) <firstYear>-<lastModifiedYear> The Bitcoin Core developers
+// Copyright (c) <firstYear>-<lastModifiedYear> The Wienchain developers
 
 where <lastModifiedYear> is obtained from the 'git log' history.
 
 This subcommand also handles copyright headers that have only a single year. In those cases:
 
-// Copyright (c) <year> The Bitcoin Core developers
+// Copyright (c) <year> The Wienchain developers
 
 will be updated to:
 
-// Copyright (c) <year>-<lastModifiedYear> The Bitcoin Core developers
+// Copyright (c) <year>-<lastModifiedYear> The Wienchain developers
 
 where the update is appropriate.
 
@@ -422,7 +435,7 @@ Usage:
     $ ./copyright_header.py update <base_directory>
 
 Arguments:
-    <base_directory> - The base directory of a bitcoin source code repository.
+    <base_directory> - The base directory of Wienchain source code repository.
 """
 
 def print_file_action_message(filename, action):
@@ -431,7 +444,7 @@ def print_file_action_message(filename, action):
 def update_cmd(argv):
     if len(argv) != 3:
         sys.exit(UPDATE_USAGE)
-
+    
     base_directory = argv[2]
     if not os.path.exists(base_directory):
         sys.exit("*** bad base_directory: %s" % base_directory)
@@ -447,7 +460,7 @@ def get_header_lines(header, start_year, end_year):
     return [line + '\n' for line in lines]
 
 CPP_HEADER = '''
-// Copyright (c) %s The Bitcoin Core developers
+// Copyright (c) %s The Wienchain developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 '''
@@ -456,7 +469,7 @@ def get_cpp_header_lines_to_insert(start_year, end_year):
     return reversed(get_header_lines(CPP_HEADER, start_year, end_year))
 
 PYTHON_HEADER = '''
-# Copyright (c) %s The Bitcoin Core developers
+# Copyright (c) %s The Wienchain developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 '''
@@ -478,7 +491,7 @@ def get_git_change_year_range(filename):
 
 def file_already_has_core_copyright(file_lines):
     index, _ = get_updatable_copyright_line(file_lines)
-    return index is not None
+    return index != None
 
 ################################################################################
 # insert header execution
@@ -493,7 +506,7 @@ def file_has_hashbang(file_lines):
 
 def insert_python_header(filename, file_lines, start_year, end_year):
     if file_has_hashbang(file_lines):
-        insert_idx = 1
+        insert_idx = 1 
     else:
         insert_idx = 0
     header_lines = get_python_header_lines_to_insert(start_year, end_year)
@@ -510,7 +523,7 @@ def insert_cpp_header(filename, file_lines, start_year, end_year):
 def exec_insert_header(filename, style):
     file_lines = read_file_lines(filename)
     if file_already_has_core_copyright(file_lines):
-        sys.exit('*** %s already has a copyright by The Bitcoin Core developers'
+        sys.exit('*** %s already has a copyright by The Wienchain developers'
                  % (filename))
     start_year, end_year = get_git_change_year_range(filename)
     if style == 'python':
@@ -523,7 +536,7 @@ def exec_insert_header(filename, style):
 ################################################################################
 
 INSERT_USAGE = """
-Inserts a copyright header for "The Bitcoin Core developers" at the top of the
+Inserts a copyright header for "The Wienchain developers" at the top of the
 file in either Python or C++ style as determined by the file extension. If the
 file is a Python file and it has a '#!' starting the first line, the header is
 inserted in the line below it.
@@ -537,14 +550,14 @@ where <year_introduced> is according to the 'git log' history. If
 
 "<current_year>"
 
-If the file already has a copyright for "The Bitcoin Core developers", the
+If the file already has a copyright for "The Wienchain developers", the
 script will exit.
 
 Usage:
     $ ./copyright_header.py insert <file>
 
 Arguments:
-    <file> - A source file in the bitcoin repository.
+    <file> - A source file in the Wienchain repository.
 """
 
 def insert_cmd(argv):
@@ -557,20 +570,19 @@ def insert_cmd(argv):
     _, extension = os.path.splitext(filename)
     if extension not in ['.h', '.cpp', '.cc', '.c', '.py']:
         sys.exit("*** cannot insert for file extension %s" % extension)
-
-    if extension == '.py':
+   
+    if extension == '.py': 
         style = 'python'
     else:
         style = 'cpp'
     exec_insert_header(filename, style)
-
+         
 ################################################################################
 # UI
 ################################################################################
 
 USAGE = """
-copyright_header.py - utilities for managing copyright headers of 'The Bitcoin
-Core developers' in repository source files.
+copyright_header.py - utilities for managing copyright headers of 'The Wienchain developers' in repository source files.
 
 Usage:
     $ ./copyright_header <subcommand>

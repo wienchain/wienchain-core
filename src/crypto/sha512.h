@@ -1,9 +1,10 @@
-// Copyright (c) 2014-2016 The Bitcoin Core developers
+// Copyright (c) 2014-2018 The Bitcoin Core developers
+// Copyright (c) 2017 The Wienchain Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CRYPTO_SHA512_H
-#define BITCOIN_CRYPTO_SHA512_H
+#ifndef WIEN_CRYPTO_SHA512_H
+#define WIEN_CRYPTO_SHA512_H
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -17,7 +18,7 @@ private:
     uint64_t bytes;
 
 public:
-    static constexpr size_t OUTPUT_SIZE = 64;
+    static const size_t OUTPUT_SIZE = 64;
 
     CSHA512();
     CSHA512& Write(const unsigned char* data, size_t len);
@@ -25,4 +26,4 @@ public:
     CSHA512& Reset();
 };
 
-#endif // BITCOIN_CRYPTO_SHA512_H
+#endif // WIEN_CRYPTO_SHA512_H

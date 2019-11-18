@@ -1,18 +1,27 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2018 The Bitcoin Core developers
-// Copyright (c) 2017 The Zcash developers
+// Copyright (c) 2009-2015 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_PUBKEY_H
 #define BITCOIN_PUBKEY_H
 
-#include <hash.h>
-#include <serialize.h>
-#include <uint256.h>
+#include "hash.h"
+#include "serialize.h"
+#include "uint256.h"
 
 #include <stdexcept>
 #include <vector>
+
+/**
+ * secp256k1:
+ * const unsigned int PRIVATE_KEY_SIZE = 279;
+ * const unsigned int PUBLIC_KEY_SIZE  = 65;
+ * const unsigned int SIGNATURE_SIZE   = 72;
+ *
+ * see www.keylength.com
+ * script supports up to 75 for single byte push
+ */
 
 const unsigned int BIP32_EXTKEY_SIZE = 74;
 
@@ -21,7 +30,7 @@ class CKeyID : public uint160
 {
 public:
     CKeyID() : uint160() {}
-    explicit CKeyID(const uint160& in) : uint160(in) {}
+    CKeyID(const uint160& in) : uint160(in) {}
 };
 
 typedef uint256 ChainCode;
@@ -29,37 +38,21 @@ typedef uint256 ChainCode;
 /** An encapsulated public key. */
 class CPubKey
 {
-public:
-    /**
-     * secp256k1:
-     */
-    static constexpr unsigned int PUBLIC_KEY_SIZE             = 65;
-    static constexpr unsigned int COMPRESSED_PUBLIC_KEY_SIZE  = 33;
-    static constexpr unsigned int SIGNATURE_SIZE              = 72;
-    static constexpr unsigned int COMPACT_SIGNATURE_SIZE      = 65;
-    /**
-     * see www.keylength.com
-     * script supports up to 75 for single byte push
-     */
-    static_assert(
-        PUBLIC_KEY_SIZE >= COMPRESSED_PUBLIC_KEY_SIZE,
-        "COMPRESSED_PUBLIC_KEY_SIZE is larger than PUBLIC_KEY_SIZE");
-
 private:
 
     /**
      * Just store the serialized data.
      * Its length can very cheaply be computed from the first byte.
      */
-    unsigned char vch[PUBLIC_KEY_SIZE];
+    unsigned char vch[65];
 
     //! Compute the length of a pubkey with a given first byte.
     unsigned int static GetLen(unsigned char chHeader)
     {
         if (chHeader == 2 || chHeader == 3)
-            return COMPRESSED_PUBLIC_KEY_SIZE;
+            return 33;
         if (chHeader == 4 || chHeader == 6 || chHeader == 7)
-            return PUBLIC_KEY_SIZE;
+            return 65;
         return 0;
     }
 
@@ -70,11 +63,6 @@ private:
     }
 
 public:
-
-    bool static ValidSize(const std::vector<unsigned char> &vch) {
-      return vch.size() > 0 && GetLen(vch[0]) == vch.size();
-    }
-
     //! Construct an invalid public key.
     CPubKey()
     {
@@ -100,14 +88,13 @@ public:
     }
 
     //! Construct a public key from a byte vector.
-    explicit CPubKey(const std::vector<unsigned char>& _vch)
+    CPubKey(const std::vector<unsigned char>& _vch)
     {
         Set(_vch.begin(), _vch.end());
     }
 
     //! Simple read-only vector-like interface to the pubkey data.
     unsigned int size() const { return GetLen(vch[0]); }
-    const unsigned char* data() const { return vch; }
     const unsigned char* begin() const { return vch; }
     const unsigned char* end() const { return vch + size(); }
     const unsigned char& operator[](unsigned int pos) const { return vch[pos]; }
@@ -140,7 +127,7 @@ public:
     void Unserialize(Stream& s)
     {
         unsigned int len = ::ReadCompactSize(s);
-        if (len <= PUBLIC_KEY_SIZE) {
+        if (len <= 65) {
             s.read((char*)vch, len);
         } else {
             // invalid pubkey, skip available data
@@ -179,7 +166,7 @@ public:
     //! Check whether this is a compressed public key.
     bool IsCompressed() const
     {
-        return size() == COMPRESSED_PUBLIC_KEY_SIZE;
+        return size() == 33;
     }
 
     /**
@@ -222,6 +209,31 @@ struct CExtPubKey {
     void Encode(unsigned char code[BIP32_EXTKEY_SIZE]) const;
     void Decode(const unsigned char code[BIP32_EXTKEY_SIZE]);
     bool Derive(CExtPubKey& out, unsigned int nChild) const;
+
+    void Serialize(CSizeComputer& s) const
+    {
+        // Optimized implementation for ::GetSerializeSize that avoids copying.
+        s.seek(BIP32_EXTKEY_SIZE + 1); // add one byte for the size (compact int)
+    }
+    template <typename Stream>
+    void Serialize(Stream& s) const
+    {
+        unsigned int len = BIP32_EXTKEY_SIZE;
+        ::WriteCompactSize(s, len);
+        unsigned char code[BIP32_EXTKEY_SIZE];
+        Encode(code);
+        s.write((const char *)&code[0], len);
+    }
+    template <typename Stream>
+    void Unserialize(Stream& s)
+    {
+        unsigned int len = ::ReadCompactSize(s);
+        unsigned char code[BIP32_EXTKEY_SIZE];
+        if (len != BIP32_EXTKEY_SIZE)
+            throw std::runtime_error("Invalid extended key size\n");
+        s.read((char *)&code[0], len);
+        Decode(code);
+    }
 };
 
 /** Users of this module must hold an ECCVerifyHandle. The constructor and

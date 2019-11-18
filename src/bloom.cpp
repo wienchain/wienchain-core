@@ -1,25 +1,29 @@
-// Copyright (c) 2012-2018 The Bitcoin Core developers
+// Copyright (c) 2012-2015 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <bloom.h>
+#include "bloom.h"
 
-#include <primitives/transaction.h>
-#include <hash.h>
-#include <script/script.h>
-#include <script/standard.h>
-#include <random.h>
-#include <streams.h>
+#include "primitives/transaction.h"
+#include "evo/specialtx.h"
+#include "evo/providertx.h"
+#include "evo/cbtx.h"
+#include "llmq/quorums_commitment.h"
+#include "hash.h"
+#include "script/script.h"
+#include "script/standard.h"
+#include "random.h"
+#include "streams.h"
 
 #include <math.h>
 #include <stdlib.h>
 
-#include <algorithm>
+#include <boost/foreach.hpp>
 
 #define LN2SQUARED 0.4804530139182014246671025263266649717305529515945455
 #define LN2 0.6931471805599453094172321214581765680755001343602552
 
-CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, const unsigned int nTweakIn, unsigned char nFlagsIn) :
+CBloomFilter::CBloomFilter(unsigned int nElements, double nFPRate, unsigned int nTweakIn, unsigned char nFlagsIn) :
     /**
      * The ideal size for a bloom filter with a given number of elements and false positive rate is:
      * - nElements * log(fp rate) / ln(2)^2
@@ -36,6 +40,17 @@ CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, c
     nHashFuncs(std::min((unsigned int)(vData.size() * 8 / nElements * LN2), MAX_HASH_FUNCS)),
     nTweak(nTweakIn),
     nFlags(nFlagsIn)
+{
+}
+
+// Private constructor used by CRollingBloomFilter
+CBloomFilter::CBloomFilter(unsigned int nElements, double nFPRate, unsigned int nTweakIn) :
+    vData((unsigned int)(-1  / LN2SQUARED * nElements * log(nFPRate)) / 8),
+    isFull(false),
+    isEmpty(true),
+    nHashFuncs((unsigned int)(vData.size() * 8 / nElements * LN2)),
+    nTweak(nTweakIn),
+    nFlags(BLOOM_UPDATE_NONE)
 {
 }
 
@@ -102,6 +117,12 @@ bool CBloomFilter::contains(const uint256& hash) const
     return contains(data);
 }
 
+bool CBloomFilter::contains(const uint160& hash) const
+{
+    std::vector<unsigned char> data(hash.begin(), hash.end());
+    return contains(data);
+}
+
 void CBloomFilter::clear()
 {
     vData.assign(vData.size(),0);
@@ -109,7 +130,7 @@ void CBloomFilter::clear()
     isEmpty = true;
 }
 
-void CBloomFilter::reset(const unsigned int nNewTweak)
+void CBloomFilter::reset(unsigned int nNewTweak)
 {
     clear();
     nTweak = nNewTweak;
@@ -118,6 +139,96 @@ void CBloomFilter::reset(const unsigned int nNewTweak)
 bool CBloomFilter::IsWithinSizeConstraints() const
 {
     return vData.size() <= MAX_BLOOM_FILTER_SIZE && nHashFuncs <= MAX_HASH_FUNCS;
+}
+
+// Match if the filter contains any arbitrary script data element in script
+bool CBloomFilter::CheckScript(const CScript &script) const
+{
+    CScript::const_iterator pc = script.begin();
+    std::vector<unsigned char> data;
+    while (pc < script.end()) {
+        opcodetype opcode;
+        if (!script.GetOp(pc, opcode, data))
+            break;
+        if (data.size() != 0 && contains(data))
+            return true;
+    }
+    return false;
+}
+
+// If the transaction is a special transaction that has a registration
+// transaction hash, test the registration transaction hash.
+// If the transaction is a special transaction with any public keys or any
+// public key hashes test them.
+// If the transaction is a special transaction with payout addresses test
+// the hash160 of those addresses.
+// Filter is updated only if it has BLOOM_UPDATE_ALL flag to be able to have
+// simple SPV wallets that doesn't work with DIP2 transactions (multicoin
+// wallets, etc.)
+bool CBloomFilter::CheckSpecialTransactionMatchesAndUpdate(const CTransaction &tx)
+{
+    if(tx.nVersion != 3 || tx.nType == TRANSACTION_NORMAL) {
+        return false; // it is not a special transaction
+    }
+    switch(tx.nType) {
+    case(TRANSACTION_PROVIDER_REGISTER): {
+        CProRegTx proTx;
+        if (GetTxPayload(tx, proTx)) {
+            if(contains(proTx.collateralOutpoint) ||
+                    contains(proTx.keyIDOwner) ||
+                    contains(proTx.keyIDVoting) ||
+                    CheckScript(proTx.scriptPayout)) {
+                if ((nFlags & BLOOM_UPDATE_MASK) == BLOOM_UPDATE_ALL)
+                    insert(tx.GetHash());
+                return true;
+            }
+        }
+        return false;
+    }
+    case(TRANSACTION_PROVIDER_UPDATE_SERVICE): {
+        CProUpServTx proTx;
+        if (GetTxPayload(tx, proTx)) {
+            if(contains(proTx.proTxHash)) {
+                return true;
+            }
+            if(CheckScript(proTx.scriptOperatorPayout)) {
+                if ((nFlags & BLOOM_UPDATE_MASK) == BLOOM_UPDATE_ALL)
+                    insert(proTx.proTxHash);
+                return true;
+            }
+        }
+        return false;
+    }
+    case(TRANSACTION_PROVIDER_UPDATE_REGISTRAR): {
+        CProUpRegTx proTx;
+        if (GetTxPayload(tx, proTx)) {
+            if(contains(proTx.proTxHash))
+                return true;
+            if(contains(proTx.keyIDVoting) ||
+                    CheckScript(proTx.scriptPayout)) {
+                if ((nFlags & BLOOM_UPDATE_MASK) == BLOOM_UPDATE_ALL)
+                    insert(proTx.proTxHash);
+                return true;
+            }
+        }
+        return false;
+    }
+    case(TRANSACTION_PROVIDER_UPDATE_REVOKE): {
+        CProUpRevTx proTx;
+        if (GetTxPayload(tx, proTx)) {
+            if(contains(proTx.proTxHash))
+                return true;
+        }
+        return false;
+    }
+    case(TRANSACTION_COINBASE):
+    case(TRANSACTION_QUORUM_COMMITMENT):
+        // No aditional checks for this transaction types
+        return false;
+    }
+
+    LogPrintf("Unknown special transaction type in Bloom filter check.");
+    return false;
 }
 
 bool CBloomFilter::IsRelevantAndUpdate(const CTransaction& tx)
@@ -133,34 +244,27 @@ bool CBloomFilter::IsRelevantAndUpdate(const CTransaction& tx)
     if (contains(hash))
         fFound = true;
 
+    // Check additional matches for special transactions
+    fFound = fFound || CheckSpecialTransactionMatchesAndUpdate(tx);
+
     for (unsigned int i = 0; i < tx.vout.size(); i++)
     {
         const CTxOut& txout = tx.vout[i];
         // Match if the filter contains any arbitrary script data element in any scriptPubKey in tx
         // If this matches, also add the specific output that was matched.
-        // This means clients don't have to update the filter themselves when a new relevant tx
+        // This means clients don't have to update the filter themselves when a new relevant tx 
         // is discovered in order to find spending transactions, which avoids round-tripping and race conditions.
-        CScript::const_iterator pc = txout.scriptPubKey.begin();
-        std::vector<unsigned char> data;
-        while (pc < txout.scriptPubKey.end())
-        {
-            opcodetype opcode;
-            if (!txout.scriptPubKey.GetOp(pc, opcode, data))
-                break;
-            if (data.size() != 0 && contains(data))
+        if(CheckScript(txout.scriptPubKey)) {
+            fFound = true;
+            if ((nFlags & BLOOM_UPDATE_MASK) == BLOOM_UPDATE_ALL)
+                insert(COutPoint(hash, i));
+            else if ((nFlags & BLOOM_UPDATE_MASK) == BLOOM_UPDATE_P2PUBKEY_ONLY)
             {
-                fFound = true;
-                if ((nFlags & BLOOM_UPDATE_MASK) == BLOOM_UPDATE_ALL)
+                txnouttype type;
+                std::vector<std::vector<unsigned char> > vSolutions;
+                if (Solver(txout.scriptPubKey, type, vSolutions) &&
+                        (type == TX_PUBKEY || type == TX_MULTISIG))
                     insert(COutPoint(hash, i));
-                else if ((nFlags & BLOOM_UPDATE_MASK) == BLOOM_UPDATE_P2PUBKEY_ONLY)
-                {
-                    std::vector<std::vector<unsigned char> > vSolutions;
-                    txnouttype type = Solver(txout.scriptPubKey, vSolutions);
-                    if (type == TX_PUBKEY || type == TX_MULTISIG) {
-                        insert(COutPoint(hash, i));
-                    }
-                }
-                break;
             }
         }
     }
@@ -168,23 +272,15 @@ bool CBloomFilter::IsRelevantAndUpdate(const CTransaction& tx)
     if (fFound)
         return true;
 
-    for (const CTxIn& txin : tx.vin)
+    BOOST_FOREACH(const CTxIn& txin, tx.vin)
     {
         // Match if the filter contains an outpoint tx spends
         if (contains(txin.prevout))
             return true;
 
         // Match if the filter contains any arbitrary script data element in any scriptSig in tx
-        CScript::const_iterator pc = txin.scriptSig.begin();
-        std::vector<unsigned char> data;
-        while (pc < txin.scriptSig.end())
-        {
-            opcodetype opcode;
-            if (!txin.scriptSig.GetOp(pc, opcode, data))
-                break;
-            if (data.size() != 0 && contains(data))
-                return true;
-        }
+        if(CheckScript(txin.scriptSig))
+            return true;
     }
 
     return false;
@@ -203,7 +299,7 @@ void CBloomFilter::UpdateEmptyFull()
     isEmpty = empty;
 }
 
-CRollingBloomFilter::CRollingBloomFilter(const unsigned int nElements, const double fpRate)
+CRollingBloomFilter::CRollingBloomFilter(unsigned int nElements, double fpRate)
 {
     double logFpRate = log(fpRate);
     /* The optimal number of hash functions is log(fpRate) / log(0.5), but
@@ -305,5 +401,7 @@ void CRollingBloomFilter::reset()
     nTweak = GetRand(std::numeric_limits<unsigned int>::max());
     nEntriesThisGeneration = 0;
     nGeneration = 1;
-    std::fill(data.begin(), data.end(), 0);
+    for (std::vector<uint64_t>::iterator it = data.begin(); it != data.end(); it++) {
+        *it = 0;
+    }
 }

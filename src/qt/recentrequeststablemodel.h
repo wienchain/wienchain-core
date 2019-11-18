@@ -1,15 +1,17 @@
-// Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2011-2015 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_QT_RECENTREQUESTSTABLEMODEL_H
 #define BITCOIN_QT_RECENTREQUESTSTABLEMODEL_H
 
-#include <qt/walletmodel.h>
+#include "walletmodel.h"
 
 #include <QAbstractTableModel>
 #include <QStringList>
 #include <QDateTime>
+
+class CWallet;
 
 class RecentRequestEntry
 {
@@ -50,7 +52,7 @@ private:
     Qt::SortOrder order;
 };
 
-/** Model for list of recently generated payment requests / bitcoin: URIs.
+/** Model for list of recently generated payment requests / wienchain: URIs.
  * Part of wallet model.
  */
 class RecentRequestsTableModel: public QAbstractTableModel
@@ -58,7 +60,7 @@ class RecentRequestsTableModel: public QAbstractTableModel
     Q_OBJECT
 
 public:
-    explicit RecentRequestsTableModel(WalletModel *parent);
+    explicit RecentRequestsTableModel(CWallet *wallet, WalletModel *parent);
     ~RecentRequestsTableModel();
 
     enum ColumnIndex {
@@ -76,7 +78,7 @@ public:
     QVariant data(const QModelIndex &index, int role) const;
     bool setData(const QModelIndex &index, const QVariant &value, int role);
     QVariant headerData(int section, Qt::Orientation orientation, int role) const;
-    QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
+    QModelIndex index(int row, int column, const QModelIndex &parent) const;
     bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex());
     Qt::ItemFlags flags(const QModelIndex &index) const;
     /*@}*/
@@ -94,7 +96,7 @@ private:
     WalletModel *walletModel;
     QStringList columns;
     QList<RecentRequestEntry> list;
-    int64_t nReceiveRequestsMaxId{0};
+    int64_t nReceiveRequestsMaxId;
 
     /** Updates the column title to "Amount (DisplayUnit)" and emits headerDataChanged() signal for table headers to react. */
     void updateAmountColumnTitle();

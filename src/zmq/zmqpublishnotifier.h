@@ -1,18 +1,20 @@
-// Copyright (c) 2015-2018 The Bitcoin Core developers
+// Copyright (c) 2015 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_ZMQ_ZMQPUBLISHNOTIFIER_H
 #define BITCOIN_ZMQ_ZMQPUBLISHNOTIFIER_H
 
-#include <zmq/zmqabstractnotifier.h>
+#include "zmqabstractnotifier.h"
 
 class CBlockIndex;
+class CGovernanceVote;
+class CGovernanceObject;
 
 class CZMQAbstractPublishNotifier : public CZMQAbstractNotifier
 {
 private:
-    uint32_t nSequence {0U}; //!< upcounting per message sequence number
+    uint32_t nSequence; //!< upcounting per message sequence number
 
 public:
 
@@ -34,10 +36,40 @@ public:
     bool NotifyBlock(const CBlockIndex *pindex) override;
 };
 
+class CZMQPublishHashChainLockNotifier : public CZMQAbstractPublishNotifier
+{
+public:
+    bool NotifyChainLock(const CBlockIndex *pindex) override;
+};
+
 class CZMQPublishHashTransactionNotifier : public CZMQAbstractPublishNotifier
 {
 public:
     bool NotifyTransaction(const CTransaction &transaction) override;
+};
+
+class CZMQPublishHashTransactionLockNotifier : public CZMQAbstractPublishNotifier
+{
+public:
+    bool NotifyTransactionLock(const CTransaction &transaction) override;
+};
+
+class CZMQPublishHashGovernanceVoteNotifier : public CZMQAbstractPublishNotifier
+{
+public:
+    bool NotifyGovernanceVote(const CGovernanceVote &vote) override;
+};
+
+class CZMQPublishHashGovernanceObjectNotifier : public CZMQAbstractPublishNotifier
+{
+public:
+    bool NotifyGovernanceObject(const CGovernanceObject &object) override;
+};
+
+class CZMQPublishHashDirectSendDoubleSpendNotifier : public CZMQAbstractPublishNotifier
+{
+public:
+    bool NotifyDirectSendDoubleSpendAttempt(const CTransaction &currentTx, const CTransaction &previousTx) override;
 };
 
 class CZMQPublishRawBlockNotifier : public CZMQAbstractPublishNotifier
@@ -46,10 +78,39 @@ public:
     bool NotifyBlock(const CBlockIndex *pindex) override;
 };
 
+class CZMQPublishRawChainLockNotifier : public CZMQAbstractPublishNotifier
+{
+public:
+    bool NotifyChainLock(const CBlockIndex *pindex) override;
+};
+
 class CZMQPublishRawTransactionNotifier : public CZMQAbstractPublishNotifier
 {
 public:
     bool NotifyTransaction(const CTransaction &transaction) override;
 };
 
+class CZMQPublishRawTransactionLockNotifier : public CZMQAbstractPublishNotifier
+{
+public:
+    bool NotifyTransactionLock(const CTransaction &transaction) override;
+};
+
+class CZMQPublishRawGovernanceVoteNotifier : public CZMQAbstractPublishNotifier
+{
+public:
+    bool NotifyGovernanceVote(const CGovernanceVote &vote) override;
+};
+
+class CZMQPublishRawGovernanceObjectNotifier : public CZMQAbstractPublishNotifier
+{
+public:
+    bool NotifyGovernanceObject(const CGovernanceObject &object) override;
+};
+
+class CZMQPublishRawDirectSendDoubleSpendNotifier : public CZMQAbstractPublishNotifier
+{
+public:
+    bool NotifyDirectSendDoubleSpendAttempt(const CTransaction &currentTx, const CTransaction &previousTx) override;
+};
 #endif // BITCOIN_ZMQ_ZMQPUBLISHNOTIFIER_H

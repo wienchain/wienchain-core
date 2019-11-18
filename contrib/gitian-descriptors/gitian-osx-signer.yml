@@ -1,6 +1,5 @@
 ---
-name: "bitcoin-dmg-signer"
-distro: "ubuntu"
+name: "wienchain-dmg-signer"
 suites:
 - "bionic"
 architectures:
@@ -8,13 +7,11 @@ architectures:
 packages:
 - "faketime"
 remotes:
-- "url": "https://github.com/bitcoin-core/bitcoin-detached-sigs.git"
+- "url": "https://github.com/wienchain/wienchain-detached-sigs.git"
   "dir": "signature"
 files:
-- "bitcoin-osx-unsigned.tar.gz"
+- "wienchain-osx-unsigned.tar.gz"
 script: |
-  set -e -o pipefail
-
   WRAP_DIR=$HOME/wrapped
   mkdir -p ${WRAP_DIR}
   export PATH=`pwd`:$PATH
@@ -22,7 +19,7 @@ script: |
 
   # Create global faketime wrappers
   for prog in ${FAKETIME_PROGS}; do
-    echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${prog}
+    echo '#!/bin/bash' > ${WRAP_DIR}/${prog}
     echo "REAL=\`which -a ${prog} | grep -v ${WRAP_DIR}/${prog} | head -1\`" >> ${WRAP_DIR}/${prog}
     echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${prog}
     echo "export FAKETIME=\"${REFERENCE_DATETIME}\"" >> ${WRAP_DIR}/${prog}
@@ -30,8 +27,8 @@ script: |
     chmod +x ${WRAP_DIR}/${prog}
   done
 
-  UNSIGNED=bitcoin-osx-unsigned.tar.gz
-  SIGNED=bitcoin-osx-signed.dmg
+  UNSIGNED=wienchain-osx-unsigned.tar.gz
+  SIGNED=wienchain-osx-signed.dmg
 
   tar -xf ${UNSIGNED}
   OSX_VOLNAME="$(cat osx_volname)"

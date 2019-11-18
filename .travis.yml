@@ -1,159 +1,144 @@
-# The test build matrix (stage: test) is constructed to test a wide range of
-# configurations, rather than a single pass/fail. This helps to catch build
-# failures and logic errors that present on platforms other than the ones the
-# author has tested.
-#
-# Some builders use the dependency-generator in `./depends`, rather than using
-# apt-get to install build dependencies. This guarantees that the tester is
-# using the same versions as Gitian, so the build results are nearly identical
-# to what would be found in a final release.
-#
-# In order to avoid rebuilding all dependencies for each build, the binaries
-# are cached and re-used when possible. Changes in the dependency-generator
-# will trigger cache-invalidation and rebuilds as necessary.
-#
-# These caches can be manually removed if necessary. This is one of the very
-# few manual operations that is possible with Travis, and it can be done by a
-# Bitcoin Core GitHub member via the Travis web interface [0].
-#
-# Travis CI uploads the cache after the script phase of the build [1].
-# However, the build is terminated without saving the cache if it takes over
-# 50 minutes [2]. Thus, if we spent too much time in early build stages, fail
-# with an error and save the cache.
-#
-# [0] https://travis-ci.org/bitcoin/bitcoin/caches
-# [1] https://docs.travis-ci.com/user/caching/#build-phases
-# [2] https://docs.travis-ci.com/user/customizing-the-build#build-timeouts
+# errata:
+# - sudo/dist/group are set so as to get Blue Box VMs, necessary for [loopback]
+#   IPv6 support
 
-dist: xenial
+sudo: required
+dist: trusty
+
 os: linux
-language: minimal
-arch: amd64
+language: generic
+
+services:
+  - docker
+
 cache:
   ccache: true
   directories:
-    - $TRAVIS_BUILD_DIR/depends/built
-    - $TRAVIS_BUILD_DIR/depends/sdk-sources
-    - $TRAVIS_BUILD_DIR/ci/scratch/.ccache
-    # macOS
-    - $HOME/Library/Caches/Homebrew
-    - /usr/local/Homebrew
-before_cache:
-  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew cleanup; fi
-stages:
-  - lint
-  - test
-  - extended-lint
+    - $HOME/cache
+
 env:
   global:
-    - CI_RETRY_EXE="travis_retry"
-    - CI_WAIT="while sleep 500; do echo .; done"
-    - CACHE_ERR_MSG="Error! Initial build successful, but not enough time remains to run later build stages and tests. Please manually re-run this job by using the travis restart button or asking a bitcoin maintainer to restart. The next run should not time out because the build cache has been saved."
-before_install:
-  - set -o errexit; source ./ci/test/00_setup_env.sh
-  - set -o errexit; source ./ci/test/03_before_install.sh
-install:
-  - set -o errexit; source ./ci/test/04_install.sh
-before_script:
-  - set -o errexit; source ./ci/test/05_before_script.sh
-script:
-  - export CONTINUE=1
-  - if [ $SECONDS -gt 1200 ]; then export CONTINUE=0; fi  # Likely the depends build took very long
-  - if [ $TRAVIS_REPO_SLUG = "bitcoin/bitcoin" ]; then export CONTINUE=1; fi  # Whitelisted repo (90 minutes build time)
-  - if [ $CONTINUE = "1" ]; then set -o errexit; source ./ci/test/06_script_a.sh; else set +o errexit; echo "$CACHE_ERR_MSG"; false; fi
-  - if [ $SECONDS -gt 2000 ]; then export CONTINUE=0; fi  # Likely the build took very long; The tests take about 1000s, so we should abort if we have less than 50*60-1000=2000s left
-  - if [ $TRAVIS_REPO_SLUG = "bitcoin/bitcoin" ]; then export CONTINUE=1; fi  # Whitelisted repo (90 minutes build time)
-  - if [ $CONTINUE = "1" ]; then set -o errexit; source ./ci/test/06_script_b.sh; else set +o errexit; echo "$CACHE_ERR_MSG"; false; fi
-after_script:
-  - echo $TRAVIS_COMMIT_RANGE
+    # DOCKER_HUB_USER
+    - secure: "J0T+zrRBBzBnxoioCD378cRSJUF8Vms32QMmrENVVfuJl03oBQv0QxSatLEiD4PtRPrN00mJ8/k/HdqFQ0SN1yg6a00duOZ6C9jk6t/fExBO1LNhp3Z7lcaMUrNEyRN6sgfVeznDVTGj9jBQU2HNlwHk0UD9BNp/k+Bjhrtw7Njp9JTLZKBgxrXk0WZmfk0d75Q+9DajA1j2tSfWVpwzv6HMGfqIH1wsVEakBY+tnaE6EO3IdzdWHhf/iV+Tx0tL0Qz/6mejgSuoGLTJLmeTrceTTmsDlN3B95y+XfcYDs6EP7gpzN8Ffg/mLV8xJ2Myj7+b1o+smMJZE5tLuPIeAu0YsfkPNa/tNLotOlDxF72per0kXyNYbRf+JrpxiOu9pLCtdtd40V2SsiNhpQqHVy+b+wkkqo2syTHT+9UNkqEi3WFm6TqFuOeQNtDm6R0hRl/Talw/ZEeKs68z1Cf6VyBrZG5LqtOurtWlKwXCe/Tr1i2g4BEAcbywphtCCcfgMK9YSGQnjKkGk6k9gVEa2bneYLZz1RSh2OpXnIsIJOX7X0hNd5xtQDLgbpSUlKwVcEriWeGe12GCszKNX9gdEo2bHeq4xAJ6BE+ot745z9dc+nC2BJ6Su+I5L6zBg4m2FWn0TWhPvz/6JR26t6ls/E7m+hkwJTCHnIUiFmmzpEw="
+    # DOCKER_HUB_PASSWORD
+    - secure: "RLzlMhfLqwSBrZqJOVOd61suXBn+HtUR3vOZfuFYF/Qmjjj5TE41+rObZmzc54hP/ZL+OH6blnibpvfDXlX+eN38ivFQfuxkJIGL68SJsEwNBRwW39Yw6Hl5RdI41MLCH7ByN15wifLp1JKBilHJ7XGMOUjI7P0yl7JjX8GBXUCtJbVLRugo80/yn+XQ1NdnlpbpYHNjMEQFWSODPa3pSK5McWvyQjDZDgS+IkdrZmIYJPMa7bmKH5I/edUPSmXQT905FgEwq9u8XR0SyBopli21EK9l6GkXIIvmDTYz5vT26Apvi2B4Aoazlklg+KNRUJuLGerpt6kbnU0gMSUChVkFfFhOk6GRSN3a/AUfD2FOudvMhet2QvlPHx+GYdEUr5XVo5HW42pHsqfD6eDtHd8VLTsHP0q4C8V85fNMv21lkkehy2ry8fx/RRy6x4O2wg2mua+79UkGKXp75gMKzWEcth34PCFCOu37l2F8R/ANnrQ52K/8vIQ88TtU2OpYX89fHjLojBxu+WKEBGZH2LRPsZBOUHeeO5C/xKDrhZU24ORnMW8wg66Qg5GIX1KI4a8yp73Mpues5hzpJ6wkMuRrQt40ymKndLCjv8KSd+5BfP6Or/KIrzDNYdZaasjk7JNi6rcZmm9d3fTAo+Ja/mjpUCIOo3SX14luzVCJIig="
+    - DOCKER_BUILD=false
+
+stages:
+  - build depends
+  - build src
+  - run tests
+  - build docker
+
+builddepends: &builddepends
+  stage: build depends
+  script:
+    - $DOCKER_RUN_IN_BUILDER ./ci/build_depends.sh
+
+buildsrc: &buildsrc
+  stage: build src
+  script:
+    - $DOCKER_RUN_IN_BUILDER ./ci/build_depends.sh
+    - $DOCKER_RUN_IN_BUILDER ./ci/build_src.sh
+
+runtests: &runtests
+  stage: run tests
+  script:
+    - $DOCKER_RUN_IN_BUILDER ./ci/build_depends.sh
+    - $DOCKER_RUN_IN_BUILDER ./ci/build_src.sh
+    - $DOCKER_RUN_IN_BUILDER ./ci/test_unittests.sh
+    - $DOCKER_RUN_IN_BUILDER ./ci/test_integrationtests.sh --jobs=3
+
+builddocker: &builddocker
+  stage: build docker
+  script:
+    # no need to run tests again here
+    - if [ "$DOCKER_BUILD" = "true" ]; then $DOCKER_RUN_IN_BUILDER ./ci/build_depends.sh && $DOCKER_RUN_IN_BUILDER ./ci/build_src.sh && BUILD_DIR=build-ci/wienchain-$BUILD_TARGET ./docker/build-docker.sh; fi
+
 jobs:
   include:
+    # build depends
+    - <<: *builddepends
+      env: BUILD_TARGET=arm-linux
+    - <<: *builddepends
+      env: BUILD_TARGET=win32
+    - <<: *builddepends
+      env: BUILD_TARGET=win64
+    - <<: *builddepends
+      env: BUILD_TARGET=linux32
+    - <<: *builddepends
+      env: BUILD_TARGET=linux64
+    - <<: *builddepends
+      env: BUILD_TARGET=linux64_nowallet
+    - <<: *builddepends
+      env: BUILD_TARGET=linux64_release DOCKER_BUILD=true
+    - <<: *builddepends
+      env: BUILD_TARGET=mac
+    # build source
+    - <<: *buildsrc
+      env: BUILD_TARGET=arm-linux
+    - <<: *buildsrc
+      env: BUILD_TARGET=win32
+    - <<: *buildsrc
+      env: BUILD_TARGET=win64
+    - <<: *buildsrc
+      env: BUILD_TARGET=linux32
+    - <<: *buildsrc
+      env: BUILD_TARGET=linux64
+    - <<: *buildsrc
+      env: BUILD_TARGET=linux64_nowallet
+    - <<: *buildsrc
+      env: BUILD_TARGET=linux64_release DOCKER_BUILD=true
+    - <<: *buildsrc
+      env: BUILD_TARGET=mac
+    # run tests (no tests for arm-linux and mac)
+    - <<: *runtests
+      env: BUILD_TARGET=win32
+    - <<: *runtests
+      env: BUILD_TARGET=win64
+    - <<: *runtests
+      env: BUILD_TARGET=linux32
+    - <<: *runtests
+      env: BUILD_TARGET=linux64
+    - <<: *runtests
+      env: BUILD_TARGET=linux64_nowallet
+    - <<: *runtests
+      env: BUILD_TARGET=linux64_release DOCKER_BUILD=true
+    # build docker
+    - <<: *builddocker
+      env: BUILD_TARGET=linux64_release DOCKER_BUILD=true
 
-    - stage: lint
-      name: 'lint'
-      env:
-      cache: false
-      language: python
-      python: '3.5' # Oldest supported version according to doc/dependencies.md
-      install:
-        - set -o errexit; source ./ci/lint/04_install.sh
-      before_script:
-        - set -o errexit; source ./ci/lint/05_before_script.sh
-      script:
-        - set -o errexit; source ./ci/lint/06_script.sh
+before_cache:
+  # Save builder image
+  - docker save wienchain-builder-$BUILD_TARGET-$TRAVIS_JOB_NUMBER $(docker history -q wienchain-builder-$BUILD_TARGET-$TRAVIS_JOB_NUMBER | grep -v \<missing\>) | gzip -2 > $HOME/cache/docker/wienchain-builder-$BUILD_TARGET.tar.gz
 
-    - stage: extended-lint
-      name: 'extended lint [runtime >= 60 seconds]'
-      env:
-      cache: false
-      language: python
-      python: '3.5'
-      install:
-        - set -o errexit; source ./ci/extended_lint/04_install.sh
-      before_script:
-        - set -o errexit; source ./ci/lint/05_before_script.sh
-      script:
-        - set -o errexit; source ./ci/extended_lint/06_script.sh
+before_install:
+  - travis_retry travis_apt_get_update
+  - travis_retry sudo apt-get -yq --no-install-suggests --no-install-recommends install docker-ce realpath
 
-    - stage: test
-      name: 'ARM  [GOAL: install]  [unit tests, functional tests]'
-      arch: arm64
-      env: >-
-        FILE_ENV="./ci/test/00_setup_env_arm.sh"
-        QEMU_USER_CMD=""  # Can run the tests natively without qemu
-
-    - stage: test
-      name: 'Win64  [GOAL: deploy]  [unit tests, no gui, no functional tests]'
-      env: >-
-        FILE_ENV="./ci/test/00_setup_env_win64.sh"
-
-    - stage: test
-      name: '32-bit + dash  [GOAL: install]  [gui]'
-      env: >-
-        FILE_ENV="./ci/test/00_setup_env_i686.sh"
-
-    - stage: test
-      name: 'x86_64 Linux  [GOAL: install]  [bionic]  [uses qt5 dev package instead of depends Qt to speed up build and avoid timeout] [unsigned char]'
-      env: >-
-        FILE_ENV="./ci/test/00_setup_env_native_qt5.sh"
-
-    - stage: test
-      name: 'x86_64 Linux  [GOAL: install]  [trusty]  [no functional tests, no depends, only system libs]'
-      env: >-
-        FILE_ENV="./ci/test/00_setup_env_native_trusty.sh"
-
-    - stage: test
-      name: 'x86_64 Linux  [GOAL: install]  [xenial]  [no depends, only system libs, sanitizers: thread (TSan), no wallet]'
-      env: >-
-        FILE_ENV="./ci/test/00_setup_env_native_tsan.sh"
-        TEST_RUNNER_EXTRA="--exclude feature_block"  # Not enough memory on travis machines
-
-    - stage: test
-      name: 'x86_64 Linux  [GOAL: install]  [bionic]  [no depends, only system libs, sanitizers: address/leak (ASan + LSan) + undefined (UBSan) + integer]'
-      env: >-
-        FILE_ENV="./ci/test/00_setup_env_native_asan.sh"
-
-    - stage: test
-      name: 'x86_64 Linux  [GOAL: install]  [bionic]  [no depends, only system libs, sanitizers: fuzzer,address,undefined]'
-      env: >-
-        FILE_ENV="./ci/test/00_setup_env_native_fuzz.sh"
-
-    - stage: test
-      name: 'x86_64 Linux  [GOAL: install]  [bionic]  [no wallet]'
-      env: >-
-        FILE_ENV="./ci/test/00_setup_env_native_nowallet.sh"
-
-    - stage: test
-      name: 'macOS 10.10  [GOAL: deploy] [no functional tests]'
-      env: >-
-        FILE_ENV="./ci/test/00_setup_env_mac.sh"
-
-    - stage: test
-      name: 'macOS 10.14 native [GOAL: install] [GUI] [no depends]'
-      os: osx
-      # Use the most recent version:
-      # Xcode 11, macOS 10.14, JDK 12.0.1
-      # https://docs.travis-ci.com/user/reference/osx/#macos-version
-      osx_image: xcode11
-      env: >-
-        FILE_ENV="./ci/test/00_setup_env_mac_host.sh"
+install:
+    # Our scripts try to be Travis agnostic
+    - export PULL_REQUEST="$TRAVIS_PULL_REQUEST"
+    - export JOB_NUMBER="$TRAVIS_JOB_NUMBER"
+    - export HOST_SRC_DIR=$TRAVIS_BUILD_DIR
+    - export HOST_CACHE_DIR=$HOME/cache
+    - export TRAVIS_COMMIT_LOG=`git log --format=fuller -1`
+    - source ./ci/matrix.sh
+    - mkdir -p $HOST_CACHE_DIR/docker && mkdir -p $HOST_CACHE_DIR/ccache && mkdir -p $HOST_CACHE_DIR/depends && mkdir -p $HOST_CACHE_DIR/sdk-sources
+    # Keep this as it makes caching related debugging easier
+    - ls -lah $HOST_CACHE_DIR && ls -lah $HOST_CACHE_DIR/depends && ls -lah $HOST_CACHE_DIR/ccache && ls -lah $HOST_CACHE_DIR/docker
+    # Load cached builder image
+    - if [ -f $HOST_CACHE_DIR/docker/wienchain-builder-$BUILD_TARGET.tar.gz ]; then zcat $HOST_CACHE_DIR/docker/wienchain-builder-$BUILD_TARGET.tar.gz | docker load || true; fi
+    - travis_retry docker pull ubuntu:bionic
+    - travis_retry docker build -t $BUILDER_IMAGE_NAME --build-arg=USER_ID=$UID --build-arg=GROUP_ID=$UID --build-arg=BUILD_TARGET=$BUILD_TARGET -f ci/Dockerfile.builder ci
+before_script:
+    # Make sure stdout is in blocking mode. Otherwise builds will fail due to large writes to stdout
+    # See https://github.com/travis-ci/travis-ci/issues/4704. If this gets fixed, this line can also be removed.
+    - python3 -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
+    # Build docker image only for develop branch of the main repo
+    - if [ "$TRAVIS_REPO_SLUG" != "wienchain/wienchain" -o "$TRAVIS_BRANCH" != "develop" -o "$TRAVIS_PULL_REQUEST" != "false" ]; then export DOCKER_BUILD="false"; echo DOCKER_BUILD=$DOCKER_BUILD; fi
+after_script:
+    - echo $TRAVIS_COMMIT_RANGE
+    - echo $TRAVIS_COMMIT_LOG
+after_success:
+    - if [ "$DOCKER_BUILD" = "true" ]; then docker login -u $DOCKER_HUB_USER -p $DOCKER_HUB_PASSWORD && ./docker/push-docker.sh; fi

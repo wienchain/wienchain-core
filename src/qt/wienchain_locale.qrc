@@ -1,0 +1,25 @@
+<!DOCTYPE RCC><RCC version="1.0">
+    <qresource prefix="/translations">
+        <file alias="ar">locale/wienchain_ar.qm</file>
+        <file alias="bg">locale/wienchain_bg.qm</file>
+        <file alias="de">locale/wienchain_de.qm</file>
+        <file alias="en">locale/wienchain_en.qm</file>
+        <file alias="es">locale/wienchain_es.qm</file>
+        <file alias="fi">locale/wienchain_fi.qm</file>
+        <file alias="fr">locale/wienchain_fr.qm</file>
+        <file alias="it">locale/wienchain_it.qm</file>
+        <file alias="ja">locale/wienchain_ja.qm</file>
+        <file alias="ko">locale/wienchain_ko.qm</file>
+        <file alias="nl">locale/wienchain_nl.qm</file>
+        <file alias="pl">locale/wienchain_pl.qm</file>
+        <file alias="pt">locale/wienchain_pt.qm</file>
+        <file alias="ru">locale/wienchain_ru.qm</file>
+        <file alias="sk">locale/wienchain_sk.qm</file>
+        <file alias="sv">locale/wienchain_sv.qm</file>
+        <file alias="th">locale/wienchain_th.qm</file>
+        <file alias="tr">locale/wienchain_tr.qm</file>
+        <file alias="vi">locale/wienchain_vi.qm</file>
+        <file alias="zh_CN">locale/wienchain_zh_CN.qm</file>
+        <file alias="zh_TW">locale/wienchain_zh_TW.qm</file>
+    </qresource>
+</RCC>

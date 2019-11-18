@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2015-2018 The Bitcoin Core developers
+# Copyright (c) 2015-2016 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 '''
@@ -14,7 +14,7 @@ import os
 
 READELF_CMD = os.getenv('READELF', '/usr/bin/readelf')
 OBJDUMP_CMD = os.getenv('OBJDUMP', '/usr/bin/objdump')
-NONFATAL = {} # checks which are non-fatal for now but only generate a warning
+NONFATAL = {'HIGH_ENTROPY_VA'} # checks which are non-fatal for now but only generate a warning
 
 def check_ELF_PIE(executable):
     '''
@@ -86,7 +86,7 @@ def check_ELF_RELRO(executable):
         # This does not affect security: the permission flags of the GNU_RELRO program header are ignored, the PT_LOAD header determines the effective permissions.
         # However, the dynamic linker need to write to this area so these are RW.
         # Glibc itself takes care of mprotecting this area R after relocations are finished.
-        # See also https://marc.info/?l=binutils&m=1498883354122353
+        # See also http://permalink.gmane.org/gmane.comp.gnu.binutils/71347
         if typ == 'GNU_RELRO':
             have_gnu_relro = True
 
@@ -97,7 +97,7 @@ def check_ELF_RELRO(executable):
         raise IOError('Error opening file')
     for line in stdout.splitlines():
         tokens = line.split()
-        if len(tokens)>1 and tokens[1] == '(BIND_NOW)' or (len(tokens)>2 and tokens[1] == '(FLAGS)' and 'BIND_NOW' in tokens[2:]):
+        if len(tokens)>1 and tokens[1] == '(BIND_NOW)' or (len(tokens)>2 and tokens[1] == '(FLAGS)' and 'BIND_NOW' in tokens[2]):
             have_bindnow = True
     return have_gnu_relro and have_bindnow
 
@@ -150,7 +150,7 @@ def check_PE_DYNAMIC_BASE(executable):
 def check_PE_HIGH_ENTROPY_VA(executable):
     '''PIE: DllCharacteristics bit 0x20 signifies high-entropy ASLR'''
     (arch,bits) = get_PE_dll_characteristics(executable)
-    if arch == 'i386:x86-64':
+    if arch == 'i386:x86-64': 
         reqbits = IMAGE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA
     else: # Unnecessary on 32-bit
         assert(arch == 'i386')
@@ -211,5 +211,5 @@ if __name__ == '__main__':
         except IOError:
             print('%s: cannot open' % filename)
             retval = 1
-    sys.exit(retval)
+    exit(retval)
 

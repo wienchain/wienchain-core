@@ -17,6 +17,9 @@
    <bool>false</bool>
   </property>
   <widget class="QFrame" name="SendCoins">
+   <property name="toolTip">
+    <string>This is a normal payment.</string>
+   </property>
    <property name="frameShape">
     <enum>QFrame::NoFrame</enum>
    </property>
@@ -54,7 +57,7 @@
       <item>
        <widget class="QValidatedLineEdit" name="payTo">
         <property name="toolTip">
-         <string>The Bitcoin address to send the payment to</string>
+         <string>The Wienchain address to send the payment to</string>
         </property>
        </widget>
       </item>
@@ -65,10 +68,6 @@
         </property>
         <property name="text">
          <string/>
-        </property>
-        <property name="icon">
-         <iconset resource="../bitcoin.qrc">
-          <normaloff>:/icons/address-book</normaloff>:/icons/address-book</iconset>
         </property>
         <property name="iconSize">
          <size>
@@ -89,10 +88,6 @@
         <property name="text">
          <string/>
         </property>
-        <property name="icon">
-         <iconset resource="../bitcoin.qrc">
-          <normaloff>:/icons/editpaste</normaloff>:/icons/editpaste</iconset>
-        </property>
         <property name="iconSize">
          <size>
           <width>22</width>
@@ -111,10 +106,6 @@
         </property>
         <property name="text">
          <string/>
-        </property>
-        <property name="icon">
-         <iconset resource="../bitcoin.qrc">
-          <normaloff>:/icons/remove</normaloff>:/icons/remove</iconset>
         </property>
         <property name="iconSize">
          <size>
@@ -160,28 +151,17 @@
      </widget>
     </item>
     <item row="2" column="1">
-     <layout class="QHBoxLayout" name="horizontalLayoutAmount" stretch="0,1,0">
+     <layout class="QHBoxLayout" name="horizontalLayoutAmount" stretch="0,1">
       <item>
-       <widget class="BitcoinAmountField" name="payAmount">
-         <property name="toolTip">
-          <string>The amount to send in the selected unit</string>
-         </property>
-       </widget>
+       <widget class="BitcoinAmountField" name="payAmount"/>
       </item>
       <item>
        <widget class="QCheckBox" name="checkboxSubtractFeeFromAmount">
         <property name="toolTip">
-         <string>The fee will be deducted from the amount being sent. The recipient will receive less bitcoins than you enter in the amount field. If multiple recipients are selected, the fee is split equally.</string>
+         <string>The fee will be deducted from the amount being sent. The recipient will receive a lower amount of Wienchain than you enter in the amount field. If multiple recipients are selected, the fee is split equally.</string>
         </property>
         <property name="text">
          <string>S&amp;ubtract fee from amount</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="useAvailableBalanceButton">
-        <property name="text">
-         <string>Use available balance</string>
         </property>
        </widget>
       </item>
@@ -200,7 +180,7 @@
     <item row="3" column="1">
      <widget class="QLabel" name="messageTextLabel">
       <property name="toolTip">
-       <string>A message that was attached to the bitcoin: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Bitcoin network.</string>
+       <string>A message that was attached to the wienchain: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Wienchain network.</string>
       </property>
       <property name="textFormat">
        <enum>Qt::PlainText</enum>
@@ -670,10 +650,6 @@
         </property>
         <property name="text">
          <string/>
-        </property>
-        <property name="icon">
-         <iconset resource="../bitcoin.qrc">
-          <normaloff>:/icons/remove</normaloff>:/icons/remove</iconset>
         </property>
        </widget>
       </item>
@@ -1204,10 +1180,6 @@
         <property name="text">
          <string/>
         </property>
-        <property name="icon">
-         <iconset resource="../bitcoin.qrc">
-          <normaloff>:/icons/remove</normaloff>:/icons/remove</iconset>
-        </property>
        </widget>
       </item>
      </layout>
@@ -1256,12 +1228,12 @@
   <customwidget>
    <class>QValidatedLineEdit</class>
    <extends>QLineEdit</extends>
-   <header>qt/qvalidatedlineedit.h</header>
+   <header>qvalidatedlineedit.h</header>
   </customwidget>
   <customwidget>
    <class>BitcoinAmountField</class>
    <extends>QLineEdit</extends>
-   <header>qt/bitcoinamountfield.h</header>
+   <header>bitcoinamountfield.h</header>
   </customwidget>
  </customwidgets>
  <tabstops>
@@ -1277,7 +1249,7 @@
   <tabstop>deleteButton_s</tabstop>
  </tabstops>
  <resources>
-  <include location="../bitcoin.qrc"/>
+  <include location="../wienchain.qrc"/>
  </resources>
  <connections/>
 </ui>

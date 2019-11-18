@@ -1,14 +1,12 @@
-// Copyright (c) 2016-2018 The Bitcoin Core developers
+// Copyright (c) 2016 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
-#endif
+#include "paymentrequestplus.h" // this includes protobuf's port.h which defines its own bswap macos
 
-#include <qt/test/compattests.h>
+#include "compattests.h"
 
-#include <compat/byteswap.h>
+#include "compat/byteswap.h"
 
 void CompatTests::bswapTests()
 {

@@ -1,25 +1,21 @@
-// Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2011-2015 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef BITCOIN_QT_TRANSACTIONTABLEMODEL_H
 #define BITCOIN_QT_TRANSACTIONTABLEMODEL_H
 
-#include <qt/bitcoinunits.h>
+#include "bitcoinunits.h"
 
 #include <QAbstractTableModel>
 #include <QStringList>
-
-#include <memory>
-
-namespace interfaces {
-class Handler;
-}
 
 class PlatformStyle;
 class TransactionRecord;
 class TransactionTablePriv;
 class WalletModel;
+
+class CWallet;
 
 /** UI model for the transaction table of a wallet.
  */
@@ -28,16 +24,17 @@ class TransactionTableModel : public QAbstractTableModel
     Q_OBJECT
 
 public:
-    explicit TransactionTableModel(const PlatformStyle *platformStyle, WalletModel *parent = nullptr);
+    explicit TransactionTableModel(const PlatformStyle *platformStyle, CWallet* wallet, WalletModel *parent = 0);
     ~TransactionTableModel();
 
     enum ColumnIndex {
         Status = 0,
         Watchonly = 1,
-        Date = 2,
-        Type = 3,
-        ToAddress = 4,
-        Amount = 5
+        DirectSend = 2,
+        Date = 3,
+        Type = 4,
+        ToAddress = 5,
+        Amount = 6
     };
 
     /** Roles to get specific information from a transaction row.
@@ -52,6 +49,10 @@ public:
         WatchonlyRole,
         /** Watch-only icon */
         WatchonlyDecorationRole,
+        /** DirectSend boolean */
+        DirectSendRole,
+        /** DirectSend icon */
+        DirectSendDecorationRole,
         /** Long description (HTML format) */
         LongDescriptionRole,
         /** Address of transaction */
@@ -60,6 +61,8 @@ public:
         LabelRole,
         /** Net amount of transaction */
         AmountRole,
+        /** Unique identifier */
+        TxIDRole,
         /** Transaction hash */
         TxHashRole,
         /** Transaction data, hex-encoded */
@@ -81,16 +84,21 @@ public:
     QVariant data(const QModelIndex &index, int role) const;
     QVariant headerData(int section, Qt::Orientation orientation, int role) const;
     QModelIndex index(int row, int column, const QModelIndex & parent = QModelIndex()) const;
-    bool processingQueuedTransactions() const { return fProcessingQueuedTransactions; }
+    bool processingQueuedTransactions() { return fProcessingQueuedTransactions; }
+    void updateNumISLocks(int numISLocks);
+    void updateChainLockHeight(int chainLockHeight);
+    int getNumISLocks() const;
+    int getChainLockHeight() const;
 
 private:
+    CWallet* wallet;
     WalletModel *walletModel;
-    std::unique_ptr<interfaces::Handler> m_handler_transaction_changed;
-    std::unique_ptr<interfaces::Handler> m_handler_show_progress;
     QStringList columns;
     TransactionTablePriv *priv;
     bool fProcessingQueuedTransactions;
     const PlatformStyle *platformStyle;
+    int cachedNumISLocks;
+    int cachedChainLockHeight;
 
     void subscribeToCoreSignals();
     void unsubscribeFromCoreSignals();
@@ -105,6 +113,7 @@ private:
     QString formatTooltip(const TransactionRecord *rec) const;
     QVariant txStatusDecoration(const TransactionRecord *wtx) const;
     QVariant txWatchonlyDecoration(const TransactionRecord *wtx) const;
+    QVariant txDirectSendDecoration(const TransactionRecord *wtx) const;
     QVariant txAddressDecoration(const TransactionRecord *wtx) const;
 
 public Q_SLOTS:

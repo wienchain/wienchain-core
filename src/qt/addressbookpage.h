@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2011-2015 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -7,8 +7,8 @@
 
 #include <QDialog>
 
-class AddressBookSortFilterProxyModel;
 class AddressTableModel;
+class OptionsModel;
 class PlatformStyle;
 
 namespace Ui {
@@ -19,6 +19,8 @@ QT_BEGIN_NAMESPACE
 class QItemSelection;
 class QMenu;
 class QModelIndex;
+class QSortFilterProxyModel;
+class QTableView;
 QT_END_NAMESPACE
 
 /** Widget that shows a list of sending or receiving addresses.
@@ -38,7 +40,7 @@ public:
         ForEditing  /**< Open address book for editing */
     };
 
-    explicit AddressBookPage(const PlatformStyle *platformStyle, Mode mode, Tabs tab, QWidget *parent = nullptr);
+    explicit AddressBookPage(const PlatformStyle *platformStyle, Mode mode, Tabs tab, QWidget *parent);
     ~AddressBookPage();
 
     void setModel(AddressTableModel *model);
@@ -53,7 +55,7 @@ private:
     Mode mode;
     Tabs tab;
     QString returnValue;
-    AddressBookSortFilterProxyModel *proxyModel;
+    QSortFilterProxyModel *proxyModel;
     QMenu *contextMenu;
     QAction *deleteAction; // to be able to explicitly disable it
     QString newAddressToSelect;
@@ -69,6 +71,8 @@ private Q_SLOTS:
     void onCopyLabelAction();
     /** Edit currently selected address entry (no button) */
     void onEditAction();
+    /** Show QR code for the currently selected address */
+    void on_showAddressQRCode_clicked();
     /** Export button clicked */
     void on_exportButton_clicked();
 

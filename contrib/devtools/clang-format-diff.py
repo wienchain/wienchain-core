@@ -71,6 +71,7 @@ import argparse
 import difflib
 import io
 import re
+import string
 import subprocess
 import sys
 
@@ -106,10 +107,10 @@ def main():
   filename = None
   lines_by_file = {}
   for line in sys.stdin:
-    match = re.search(r'^\+\+\+\ (.*?/){%s}(\S*)' % args.p, line)
+    match = re.search('^\+\+\+\ (.*?/){%s}(\S*)' % args.p, line)
     if match:
       filename = match.group(2)
-    if filename is None:
+    if filename == None:
       continue
 
     if args.regex is not None:
@@ -119,7 +120,7 @@ def main():
       if not re.match('^%s$' % args.iregex, filename, re.IGNORECASE):
         continue
 
-    match = re.search(r'^@@.*\+(\d+)(,(\d+))?', line)
+    match = re.search('^@@.*\+(\d+)(,(\d+))?', line)
     if match:
       start_line = int(match.group(1))
       line_count = 1
@@ -152,7 +153,7 @@ def main():
       sys.exit(p.returncode)
 
     if not args.i:
-      with open(filename, encoding="utf8") as f:
+      with open(filename) as f:
         code = f.readlines()
       formatted_code = io.StringIO(stdout).readlines()
       diff = difflib.unified_diff(code, formatted_code,

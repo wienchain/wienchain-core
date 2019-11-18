@@ -1,21 +1,26 @@
-// Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2011-2015 The Bitcoin Core developers
+// Copyright (c) 2019 The Wienchain developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #if defined(HAVE_CONFIG_H)
-#include <config/bitcoin-config.h>
+#include "config/wienchain-config.h"
 #endif
 
-#include <qt/utilitydialog.h>
+#include "utilitydialog.h"
 
-#include <qt/forms/ui_helpmessagedialog.h>
+#include "ui_helpmessagedialog.h"
 
-#include <qt/bitcoingui.h>
+#include "bitcoingui.h"
+#include "clientmodel.h"
+#include "guiconstants.h"
+#include "intro.h"
+#include "paymentrequestplus.h"
+#include "guiutil.h"
 
-#include <clientversion.h>
-#include <init.h>
-#include <util/system.h>
-#include <util/strencodings.h>
+#include "clientversion.h"
+#include "init.h"
+#include "util.h"
 
 #include <stdio.h>
 
@@ -27,13 +32,13 @@
 #include <QVBoxLayout>
 
 /** "Help message" or "About" dialog box */
-HelpMessageDialog::HelpMessageDialog(interfaces::Node& node, QWidget *parent, bool about) :
+HelpMessageDialog::HelpMessageDialog(QWidget *parent, HelpMode helpMode) :
     QDialog(parent),
     ui(new Ui::HelpMessageDialog)
 {
     ui->setupUi(this);
 
-    QString version = QString{PACKAGE_NAME} + " " + tr("version") + " " + QString::fromStdString(FormatFullVersion());
+    QString version = tr(PACKAGE_NAME) + " " + tr("version") + " " + QString::fromStdString(FormatFullVersion());
     /* On x86 add a bit specifier to the version so that users can distinguish between
      * 32 and 64 bit builds. On other architectures, 32/64 bit may be more ambiguous.
      */
@@ -43,13 +48,14 @@ HelpMessageDialog::HelpMessageDialog(interfaces::Node& node, QWidget *parent, bo
     version += " " + tr("(%1-bit)").arg(32);
 #endif
 
-    if (about)
+    if (helpMode == about)
     {
-        setWindowTitle(tr("About %1").arg(PACKAGE_NAME));
+        setWindowTitle(tr("About %1").arg(tr(PACKAGE_NAME)));
 
-        std::string licenseInfo = LicenseInfo();
         /// HTML-format the license message from the core
-        QString licenseInfoHTML = QString::fromStdString(LicenseInfo());
+        QString licenseInfo = QString::fromStdString(LicenseInfo());
+        QString licenseInfoHTML = licenseInfo;
+
         // Make URLs clickable
         QRegExp uri("<(.*)>", Qt::CaseSensitive, QRegExp::RegExp2);
         uri.setMinimal(true); // use non-greedy matching
@@ -59,22 +65,37 @@ HelpMessageDialog::HelpMessageDialog(interfaces::Node& node, QWidget *parent, bo
 
         ui->aboutMessage->setTextFormat(Qt::RichText);
         ui->scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-        text = version + "\n" + QString::fromStdString(FormatParagraph(licenseInfo));
+        text = version + "\n" + licenseInfo;
         ui->aboutMessage->setText(version + "<br><br>" + licenseInfoHTML);
         ui->aboutMessage->setWordWrap(true);
         ui->helpMessage->setVisible(false);
-    } else {
+    } else if (helpMode == cmdline) {
         setWindowTitle(tr("Command-line options"));
-        QString header = "Usage:  bitcoin-qt [command-line options]                     \n";
+        QString header = tr("Usage:") + "\n" +
+            "  wienchain-qt [" + tr("command-line options") + "]                     " + "\n";
         QTextCursor cursor(ui->helpMessage->document());
         cursor.insertText(version);
         cursor.insertBlock();
         cursor.insertText(header);
         cursor.insertBlock();
 
-        std::string strUsage = gArgs.GetHelpMessage();
+        std::string strUsage = HelpMessage(HMM_BITCOIN_QT);
+        const bool showDebug = GetBoolArg("-help-debug", false);
+        strUsage += HelpMessageGroup(tr("UI Options:").toStdString());
+        if (showDebug) {
+            strUsage += HelpMessageOpt("-allowselfsignedrootcertificates", strprintf("Allow self signed root certificates (default: %u)", DEFAULT_SELFSIGNED_ROOTCERTS));
+        }
+        strUsage += HelpMessageOpt("-choosedatadir", strprintf(tr("Choose data directory on startup (default: %u)").toStdString(), DEFAULT_CHOOSE_DATADIR));
+        strUsage += HelpMessageOpt("-lang=<lang>", tr("Set language, for example \"de_DE\" (default: system locale)").toStdString());
+        strUsage += HelpMessageOpt("-min", tr("Start minimized").toStdString());
+        strUsage += HelpMessageOpt("-rootcertificates=<file>", tr("Set SSL root certificates for payment request (default: -system-)").toStdString());
+        strUsage += HelpMessageOpt("-splash", strprintf(tr("Show splash screen on startup (default: %u)").toStdString(), DEFAULT_SPLASHSCREEN));
+        strUsage += HelpMessageOpt("-resetguisettings", tr("Reset all settings changed in the GUI").toStdString());
+        if (showDebug) {
+            strUsage += HelpMessageOpt("-uiplatform", strprintf("Select platform to customize UI for (one of windows, macosx, other; default: %s)", BitcoinGUI::DEFAULT_UIPLATFORM));
+        }
         QString coreOptions = QString::fromStdString(strUsage);
-        text = version + "\n\n" + header + "\n" + coreOptions;
+        text = version + "\n" + header + "\n" + coreOptions;
 
         QTextTableFormat tf;
         tf.setBorderStyle(QTextFrameFormat::BorderStyle_None);
@@ -87,7 +108,7 @@ HelpMessageDialog::HelpMessageDialog(interfaces::Node& node, QWidget *parent, bo
         QTextCharFormat bold;
         bold.setFontWeight(QFont::Bold);
 
-        for (const QString &line : coreOptions.split("\n")) {
+        Q_FOREACH (const QString &line, coreOptions.split("\n")) {
             if (line.startsWith("  -"))
             {
                 cursor.currentTable()->appendRows(1);
@@ -110,7 +131,46 @@ HelpMessageDialog::HelpMessageDialog(interfaces::Node& node, QWidget *parent, bo
         ui->helpMessage->moveCursor(QTextCursor::Start);
         ui->scrollArea->setVisible(false);
         ui->aboutLogo->setVisible(false);
+    } else if (helpMode == pshelp) {
+        setWindowTitle(tr("ExclusiveSend information"));
+
+        ui->aboutMessage->setTextFormat(Qt::RichText);
+        ui->scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        ui->aboutMessage->setText(tr("\
+<h3>ExclusiveSend Basics</h3> \
+ExclusiveSend gives you true financial privacy by obscuring the origins of your funds. \
+All the Wienchain in your wallet is comprised of different \"inputs\" which you can think of as separate, discrete coins.<br> \
+ExclusiveSend uses an innovative process to mix your inputs with the inputs of two other people, without having your coins ever leave your wallet. \
+You retain control of your money at all times.<hr> \
+<b>The ExclusiveSend process works like this:</b>\
+<ol type=\"1\"> \
+<li>ExclusiveSend begins by breaking your transaction inputs down into standard denominations. \
+These denominations are 0.001 WIEN, 0.01 WIEN, 0.1 WIEN, 1 WIEN and 10 WIEN -- sort of like the paper money you use every day.</li> \
+<li>Your wallet then sends requests to specially configured software nodes on the network, called \"masternodes.\" \
+These masternodes are informed then that you are interested in mixing a certain denomination. \
+No identifiable information is sent to the masternodes, so they never know \"who\" you are.</li> \
+<li>When two other people send similar messages, indicating that they wish to mix the same denomination, a mixing session begins. \
+The masternode mixes up the inputs and instructs all three users' wallets to pay the now-transformed input back to themselves. \
+Your wallet pays that denomination directly to itself, but in a different address (called a change address).</li> \
+<li>In order to fully obscure your funds, your wallet must repeat this process a number of times with each denomination. \
+Each time the process is completed, it's called a \"round.\" Each round of ExclusiveSend makes it exponentially more difficult to determine where your funds originated.</li> \
+<li>This mixing process happens in the background without any intervention on your part. When you wish to make a transaction, \
+your funds will already be anonymized. No additional waiting is required.</li> \
+</ol> <hr>\
+<b>IMPORTANT:</b> Your wallet only contains 1000 of these \"change addresses.\" Every time a mixing event happens, up to 9 of your addresses are used up. \
+This means those 1000 addresses last for about 100 mixing events. When 900 of them are used, your wallet must create more addresses. \
+It can only do this, however, if you have automatic backups enabled.<br> \
+Consequently, users who have backups disabled will also have ExclusiveSend disabled. <hr>\
+For more information, see the <a href=\"https://docs.wienchain.com/en/latest/wallets/wienchain/exclusivesend-directsend.html\">ExclusiveSend documentation</a>."
+        ));
+        ui->aboutMessage->setWordWrap(true);
+        ui->helpMessage->setVisible(false);
+        ui->aboutLogo->setVisible(false);
     }
+    // Theme dependent Gfx in About popup
+    QString helpMessageGfx = ":/images/" + GUIUtil::getThemeName() + "/about";
+    QPixmap pixmap = QPixmap(helpMessageGfx);
+    ui->aboutLogo->setPixmap(pixmap);
 }
 
 HelpMessageDialog::~HelpMessageDialog()
@@ -121,7 +181,7 @@ HelpMessageDialog::~HelpMessageDialog()
 void HelpMessageDialog::printToConsole()
 {
     // On other operating systems, the expected action is to print the message to the console.
-    tfm::format(std::cout, "%s\n", qPrintable(text));
+    fprintf(stdout, "%s\n", qPrintable(text));
 }
 
 void HelpMessageDialog::showOrPrint()
@@ -147,7 +207,7 @@ ShutdownWindow::ShutdownWindow(QWidget *parent, Qt::WindowFlags f):
 {
     QVBoxLayout *layout = new QVBoxLayout();
     layout->addWidget(new QLabel(
-        tr("%1 is shutting down...").arg(PACKAGE_NAME) + "<br /><br />" +
+        tr("%1 is shutting down...").arg(tr(PACKAGE_NAME)) + "<br /><br />" +
         tr("Do not shut down the computer until this window disappears.")));
     setLayout(layout);
 }

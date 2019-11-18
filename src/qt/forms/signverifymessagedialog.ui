@@ -30,7 +30,7 @@
        <item>
         <widget class="QLabel" name="infoLabel_SM">
          <property name="text">
-          <string>You can sign messages/agreements with your addresses to prove you can receive bitcoins sent to them. Be careful not to sign anything vague or random, as phishing attacks may try to trick you into signing your identity over to them. Only sign fully-detailed statements you agree to.</string>
+          <string>You can sign messages/agreements with your addresses to prove you can receive Wienchain sent to them. Be careful not to sign anything vague or random, as phishing attacks may try to trick you into signing your identity over to them. Only sign fully-detailed statements you agree to.</string>
          </property>
          <property name="textFormat">
           <enum>Qt::PlainText</enum>
@@ -48,7 +48,7 @@
          <item>
           <widget class="QValidatedLineEdit" name="addressIn_SM">
            <property name="toolTip">
-            <string>The Bitcoin address to sign the message with</string>
+            <string>The Wienchain address to sign the message with</string>
            </property>
           </widget>
          </item>
@@ -59,10 +59,6 @@
            </property>
            <property name="text">
             <string/>
-           </property>
-           <property name="icon">
-            <iconset resource="../bitcoin.qrc">
-             <normaloff>:/icons/address-book</normaloff>:/icons/address-book</iconset>
            </property>
            <property name="shortcut">
             <string>Alt+A</string>
@@ -80,10 +76,6 @@
            <property name="text">
             <string/>
            </property>
-           <property name="icon">
-            <iconset resource="../bitcoin.qrc">
-             <normaloff>:/icons/editpaste</normaloff>:/icons/editpaste</iconset>
-           </property>
            <property name="shortcut">
             <string>Alt+P</string>
            </property>
@@ -97,9 +89,6 @@
        <item>
         <widget class="QPlainTextEdit" name="messageIn_SM">
          <property name="toolTip">
-          <string>Enter the message you want to sign here</string>
-         </property>
-         <property name="placeholderText">
           <string>Enter the message you want to sign here</string>
          </property>
         </widget>
@@ -139,10 +128,6 @@
            <property name="text">
             <string/>
            </property>
-           <property name="icon">
-            <iconset resource="../bitcoin.qrc">
-             <normaloff>:/icons/editcopy</normaloff>:/icons/editcopy</iconset>
-           </property>
            <property name="autoDefault">
             <bool>false</bool>
            </property>
@@ -155,14 +140,10 @@
          <item>
           <widget class="QPushButton" name="signMessageButton_SM">
            <property name="toolTip">
-            <string>Sign the message to prove you own this Bitcoin address</string>
+            <string>Sign the message to prove you own this Wienchain address</string>
            </property>
            <property name="text">
             <string>Sign &amp;Message</string>
-           </property>
-           <property name="icon">
-            <iconset resource="../bitcoin.qrc">
-             <normaloff>:/icons/edit</normaloff>:/icons/edit</iconset>
            </property>
            <property name="autoDefault">
             <bool>false</bool>
@@ -176,10 +157,6 @@
            </property>
            <property name="text">
             <string>Clear &amp;All</string>
-           </property>
-           <property name="icon">
-            <iconset resource="../bitcoin.qrc">
-             <normaloff>:/icons/remove</normaloff>:/icons/remove</iconset>
            </property>
            <property name="autoDefault">
             <bool>false</bool>
@@ -261,7 +238,7 @@
          <item>
           <widget class="QValidatedLineEdit" name="addressIn_VM">
            <property name="toolTip">
-            <string>The Bitcoin address the message was signed with</string>
+            <string>The Wienchain address the message was signed with</string>
            </property>
           </widget>
          </item>
@@ -272,10 +249,6 @@
            </property>
            <property name="text">
             <string/>
-           </property>
-           <property name="icon">
-            <iconset resource="../bitcoin.qrc">
-             <normaloff>:/icons/address-book</normaloff>:/icons/address-book</iconset>
            </property>
            <property name="shortcut">
             <string>Alt+A</string>
@@ -288,38 +261,20 @@
         </layout>
        </item>
        <item>
-        <widget class="QPlainTextEdit" name="messageIn_VM">
-          <property name="toolTip">
-            <string>The signed message to verify</string>
-          </property>
-          <property name="placeholderText">
-            <string>The signed message to verify</string>
-          </property>
-        </widget>
+        <widget class="QPlainTextEdit" name="messageIn_VM"/>
        </item>
        <item>
-        <widget class="QValidatedLineEdit" name="signatureIn_VM">
-          <property name="toolTip">
-            <string>The signature given when the message was signed</string>
-          </property>
-          <property name="placeholderText">
-            <string>The signature given when the message was signed</string>
-          </property>
-        </widget>
+        <widget class="QValidatedLineEdit" name="signatureIn_VM"/>
        </item>
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_2_VM">
          <item>
           <widget class="QPushButton" name="verifyMessageButton_VM">
            <property name="toolTip">
-            <string>Verify the message to ensure it was signed with the specified Bitcoin address</string>
+            <string>Verify the message to ensure it was signed with the specified Wienchain address</string>
            </property>
            <property name="text">
             <string>Verify &amp;Message</string>
-           </property>
-           <property name="icon">
-            <iconset resource="../bitcoin.qrc">
-             <normaloff>:/icons/transaction_0</normaloff>:/icons/transaction_0</iconset>
            </property>
            <property name="autoDefault">
             <bool>false</bool>
@@ -333,10 +288,6 @@
            </property>
            <property name="text">
             <string>Clear &amp;All</string>
-           </property>
-           <property name="icon">
-            <iconset resource="../bitcoin.qrc">
-             <normaloff>:/icons/remove</normaloff>:/icons/remove</iconset>
            </property>
            <property name="autoDefault">
             <bool>false</bool>
@@ -397,11 +348,11 @@
   <customwidget>
    <class>QValidatedLineEdit</class>
    <extends>QLineEdit</extends>
-   <header>qt/qvalidatedlineedit.h</header>
+   <header>qvalidatedlineedit.h</header>
   </customwidget>
  </customwidgets>
  <resources>
-  <include location="../bitcoin.qrc"/>
+  <include location="../wienchain.qrc"/>
  </resources>
  <connections/>
 </ui>
