@@ -12,7 +12,10 @@ Run the following commands to install required packages:
 
 ##### Debian/Ubuntu:
 ```bash
-$ sudo apt-get install curl build-essential libtool autotools-dev automake pkg-config python3 bsdmainutils cmake
+$ sudo apt-get install -y software-properties-common
+$ sudo add-apt-repository -y ppa:bitcoin/bitcoin
+$ sudo apt-get update
+$ sudo apt-get install -y curl build-essential libtool autotools-dev automake pkg-config python3 bsdmainutils cmake bc libssl-dev libevent-dev bsdmainutils libboost-all-dev libminiupnpc-dev libzmq3-dev libdb4.8-dev libdb4.8++-dev
 $ wget https://github.com/codablock/bls-signatures/archive/v20181101.zip
 $ unzip v20181101.zip
 $ cd bls-signatures-20181101

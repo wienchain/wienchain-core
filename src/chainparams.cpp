@@ -261,7 +261,7 @@ public:
         consensus.nMinimumChainWork = uint256S("0x00");
 
         // By default assume that the signatures in ancestors of this block are valid.
-        consensus.defaultAssumeValid = uint256S("0x00");
+        consensus.defaultAssumeValid = uint256S("0x000000000004f022bf7b86063db2030c45115707b1397a5c14050e0e32e17487");
         /**
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
@@ -306,7 +306,7 @@ public:
         consensus.llmqChainLocks = Consensus::LLMQ_40_60;
         consensus.llmqForDirectSend = Consensus::LLMQ_5_60;
 
-        fMiningRequiresPeers = false;
+        fMiningRequiresPeers = true;
         fDefaultConsistencyChecks = false;
         fRequireStandard = true;
         fRequireRoutableExternalIP = true;
@@ -316,6 +316,7 @@ public:
 
         nPoolMinParticipants = 3;
         nPoolMaxParticipants = 5;
+        
         nFulfilledRequestExpireTime = 60*60; // fulfilled requests expire in 1 hour
 
         vSporkAddresses = {"WfEpXukSRJwGvDJiMWJGZ9vRETh5YZEoxL"};
@@ -325,11 +326,17 @@ public:
         checkpointData = (CCheckpointData) {
             boost::assign::map_list_of
             (   0, uint256S("0x00000d33e0345e0a74182150e116e7728d4d20235d7df6e4d6b285bec9e2a26a"))
+            (   50000, uint256S("0x0000005bfe31d0c8fec868f2d46446be27cab905ed0a84811c49bdd3c257edea"))
+            (   100000, uint256S("0x000000022d1df1356a5230206c43a0a4861e342bf708caf19a16ea350221e571"))
+            (   129600, uint256S("0x000000000000ac1859f11ef8e272b1c76dbe3f90675fd2b2d55bf24843bc1da2"))
+            (   150000, uint256S("0x000000000024e08fbb9c4ac6f2feb5c9e88435f751db4bc9cdea6a4cee6d680d"))
+            (   155000, uint256S("0x000000000003215d1348993469a0b6b1a8e1979998e9207306256605e823521d"))
+            (   155437, uint256S("0x000000000004f022bf7b86063db2030c45115707b1397a5c14050e0e32e17487"))
         };
 
         chainTxData = ChainTxData{
             1574074000, // * UNIX timestamp of last known number of transactions (Block 463985)
-            1,     		// * total number of transactions between genesis and that timestamp
+            263207,     		// * total number of transactions between genesis and that timestamp
                         //   (the tx=... number in the SetBestChain debug.log lines)
             0.01        // * estimated number of transactions per second after that timestamp
         };
@@ -346,7 +353,7 @@ public:
         strNetworkID = "test";
         consensus.nSubsidyHalvingInterval = 525600;
         consensus.nMasternodePaymentsStartBlock = 129600; // not true, but it's ok as long as it's less then nMasternodePaymentsIncreaseBlock
-        consensus.nMinimumDifficultyBlocks = 129600;
+        consensus.nMinimumDifficultyBlocks = 259200;
         consensus.nDirectSendConfirmationsRequired = 2;
         consensus.nDirectSendKeepLock = 15;
         consensus.nDirectSendSigsRequired = 15;
@@ -370,7 +377,7 @@ public:
         consensus.DIP0003EnforcementHash = uint256S("");
         consensus.powLimit = uint256S("00000fffff000000000000000000000000000000000000000000000000000000");
         consensus.nPowTargetTimespan = 24 * 60 * 60; // Wienchain: 1 day
-        consensus.nPowTargetSpacing = 15; // Wienchain: 1 minute
+        consensus.nPowTargetSpacing = 60; // Wienchain: 1 minute
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
